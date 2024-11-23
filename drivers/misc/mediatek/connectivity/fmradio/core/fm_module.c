@@ -932,7 +932,7 @@ static long fm_ops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				goto out;
 			}
 
-			ret = fm_atj_set(10400, value);
+			ret = fm_atj_set(value);
 			break;
 		}
 
@@ -1789,8 +1789,6 @@ void mtk_wcn_fm_exit(void)
 EXPORT_SYMBOL(mtk_wcn_fm_exit);
 
 EXPORT_SYMBOL(g_dbg_level);
-/*
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek FM Driver");
 MODULE_AUTHOR("Hongcheng <hongcheng.xia@MediaTek.com>");
-*/

@@ -354,7 +354,7 @@ enum _ENUM_NAN_CONTROL_ID {
 	ENUM_NAN_DATA_END = 0x12,
 	ENUM_NAN_DATA_UPDTAE = 0x13,
 
-	/* RANGING 0x20 */
+	/* RANGING 0x20*/
 	ENUM_NAN_RG_REQ = 0x20,
 	ENUM_NAN_RG_CANCEL = 0x21,
 	ENUM_NAN_RG_RESP = 0x22,
@@ -363,7 +363,7 @@ enum _ENUM_NAN_CONTROL_ID {
 	ENUM_NAN_ENABLE_REQ = 0x30,
 	ENUM_NAN_DISABLE_REQ = 0x31,
 
-	/* CONFIG 0x40 */
+	/* CONFIG 0x40*/
 	ENUM_NAN_CONFIG_MP = 0x40,
 	ENUM_NAN_CONFIG_HC = 0x41,
 	ENUM_NAN_CONFIG_RANFAC = 0x42,
@@ -488,21 +488,9 @@ priv_ate_set(IN struct net_device *prNetDev,
 #endif
 
 #if CFG_SUPPORT_NAN
-int priv_nan_struct(struct net_device *prNetDev,
-		    struct iw_request_info *prIwReqInfo,
-		    union iwreq_data *prIwReqData, char *pcExtra);
-int priv_driver_set_nan_start(struct net_device *prNetDev,
-	char *pcCommand, int i4TotalLen);
-int priv_driver_get_master_ind(struct net_device *prNetDev,
-	char *pcCommand, int i4TotalLen);
-int priv_driver_get_range(struct net_device *prNetDev,
-	char *pcCommand, int i4TotalLen);
-int priv_driver_set_faw_reset(struct net_device *prNetDev,
-	char *pcCommand, int i4TotalLen);
-int priv_driver_set_faw_config(struct net_device *prNetDev,
-	char *pcCommand, int i4TotalLen);
-int priv_driver_set_faw_apply(struct net_device *prNetDev,
-	char *pcCommand, int i4TotalLen);
+int priv_nan_struct(IN struct net_device *prNetDev,
+		    IN struct iw_request_info *prIwReqInfo,
+		    IN union iwreq_data *prIwReqData, IN char *pcExtra);
 #endif
 /*******************************************************************************
  *                              F U N C T I O N S

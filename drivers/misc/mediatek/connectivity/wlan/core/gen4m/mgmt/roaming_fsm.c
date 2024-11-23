@@ -531,7 +531,6 @@ void roamingFsmRunEventStart(IN struct ADAPTER *prAdapter,
 
 	prRoamingFsmInfo =
 		aisGetRoamingInfo(prAdapter, ucBssIndex);
-	kalMemZero(&rTransit, sizeof(struct CMD_ROAMING_TRANSIT));
 
 	/* Check Roaming Conditions */
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
@@ -723,11 +722,11 @@ void roamingFsmRunEventRoam(IN struct ADAPTER *prAdapter,
 
 	prRoamingFsmInfo =
 		aisGetRoamingInfo(prAdapter, ucBssIndex);
-	kalMemZero(&rTransit, sizeof(struct CMD_ROAMING_TRANSIT));
 
 	/* Check Roaming Conditions */
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
 		return;
+
 
 	DBGLOG(ROAMING, EVENT,
 	       "[%d] EVENT-ROAMING ROAM: Current Time = %d\n",
@@ -806,11 +805,11 @@ void roamingFsmRunEventFail(IN struct ADAPTER *prAdapter,
 
 	prRoamingFsmInfo =
 		aisGetRoamingInfo(prAdapter, ucBssIndex);
-	kalMemZero(&rTransit, sizeof(struct CMD_ROAMING_TRANSIT));
 
 	/* Check Roaming Conditions */
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
 		return;
+
 
 	DBGLOG(ROAMING, STATE,
 	       "[%d] EVENT-ROAMING FAIL: reason %x Current Time = %d\n",
@@ -854,11 +853,11 @@ void roamingFsmRunEventAbort(IN struct ADAPTER *prAdapter,
 
 	prRoamingFsmInfo =
 		aisGetRoamingInfo(prAdapter, ucBssIndex);
-	kalMemZero(&rTransit, sizeof(struct CMD_ROAMING_TRANSIT));
 
 	/* Check Roaming Conditions */
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
 		return;
+
 
 	DBGLOG(ROAMING, EVENT,
 	       "[%d] EVENT-ROAMING ABORT: Current Time = %d\n",
@@ -964,19 +963,17 @@ void roamingFsmLogScanStart(IN struct ADAPTER *prAdapter,
 {
 	struct ROAMING_INFO *prRoamInfo;
 	uint32_t u4CannelUtilization = 0;
-	uint8_t ucIsValidCu = FALSE;
 	char aucLog[256] = {0};
 
 	prRoamInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
-	ucIsValidCu = (prBssDesc && prBssDesc->fgExistBssLoadIE);
-	if (ucIsValidCu)
-		u4CannelUtilization = prBssDesc->ucChnlUtilization * 100 / 255;
+	u4CannelUtilization = prBssDesc ?
+		(prBssDesc->ucChnlUtilization * 100 / 255) : 0;
 
 	kalSprintf(aucLog,
 		"[ROAM] SCAN_START reason=%d rssi=%d cu=%d full_scan=%d rssi_thres=%d",
 		apucRoamingReasonToLog[prRoamInfo->eReason],
 		RCPI_TO_dBm(prRoamInfo->ucRcpi),
-		ucIsValidCu ? u4CannelUtilization : -1,
+		prBssDesc->fgExistBssLoadIE ? u4CannelUtilization : -1,
 		fgIsFullScn, RCPI_TO_dBm(prRoamInfo->ucThreshold));
 
 	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);

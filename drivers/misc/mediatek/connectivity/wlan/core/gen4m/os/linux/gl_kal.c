@@ -1193,11 +1193,6 @@ uint32_t kalRxIndicateOnePkt(IN struct GLUE_INFO
 		return WLAN_STATUS_FAILURE;
 	}
 
-	DBGLOG(RX, LOUD, "ucBssIdx: %d, netdev name: 0x%p\n",
-		ucBssIdx,
-		prNetDev,
-		prNetDev->name);
-
 	prNetDev->stats.rx_bytes += prSkb->len;
 	prNetDev->stats.rx_packets++;
 #if CFG_SUPPORT_PERF_IND
@@ -1351,19 +1346,19 @@ skip_gro:
 #if CFG_SUPPORT_NAN
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief Called by driver to indicate event to upper layer, for example, the
- *        wpa supplicant or wireless tools.
- *
- * \param[in] pvAdapter Pointer to the adapter descriptor.
- * \param[in] eStatus Indicated status.
- * \param[in] NAN_BSS_ROLE_INDEX eIndex
- *
- * \return (none)
- *
- */
+* \brief Called by driver to indicate event to upper layer, for example, the wpa
+*        supplicant or wireless tools.
+*
+* \param[in] pvAdapter Pointer to the adapter descriptor.
+* \param[in] eStatus Indicated status.
+* \param[in] NAN_BSS_ROLE_INDEX eIndex
+*
+* \return (none)
+*
+*/
 /*----------------------------------------------------------------------------*/
-void kalNanIndicateStatusAndComplete(struct GLUE_INFO *prGlueInfo,
-				uint32_t eStatus, uint8_t ucRoleIdx)
+void kalNanIndicateStatusAndComplete(IN struct GLUE_INFO *prGlueInfo,
+				IN uint32_t eStatus, IN uint8_t ucRoleIdx)
 {
 
 	DBGLOG(NAN, INFO, "NanIndicateStatus %x\n", eStatus);
@@ -1388,7 +1383,7 @@ void kalNanIndicateStatusAndComplete(struct GLUE_INFO *prGlueInfo,
 	}
 }
 
-void kalCreateUserSock(struct GLUE_INFO *prGlueInfo)
+void kalCreateUserSock(IN struct GLUE_INFO *prGlueInfo)
 {
 	prGlueInfo->NetLinkSK =
 		netlink_kernel_create(&init_net, MTKPROTO, NULL);
@@ -1396,7 +1391,7 @@ void kalCreateUserSock(struct GLUE_INFO *prGlueInfo)
 	if (!prGlueInfo->NetLinkSK)
 		DBGLOG(INIT, INFO, "Create Socket Fail\n");
 }
-void kalReleaseUserSock(struct GLUE_INFO *prGlueInfo)
+void kalReleaseUserSock(IN struct GLUE_INFO *prGlueInfo)
 {
 	if (prGlueInfo->NetLinkSK) {
 		DBGLOG(INIT, INFO, "Release netlink Socket\n");
@@ -1404,8 +1399,8 @@ void kalReleaseUserSock(struct GLUE_INFO *prGlueInfo)
 	}
 }
 
-int kalIndicateNetlink2User(struct GLUE_INFO *prGlueInfo, void *pvBuf,
-			uint32_t u4BufLen)
+int kalIndicateNetlink2User(IN struct GLUE_INFO *prGlueInfo, IN void *pvBuf,
+			IN uint32_t u4BufLen)
 {
 	struct sk_buff *skb;
 	struct nlmsghdr *nlh;
@@ -2893,10 +2888,9 @@ kalIPv6FrameClassifier(IN struct GLUE_INFO *prGlueInfo,
 		       IN void *prPacket, IN uint8_t *pucIpv6Hdr,
 		       OUT struct TX_PACKET_INFO *prTxPktInfo)
 {
-	struct ADAPTER *prAdapter;
 	uint8_t ucIpv6Proto;
 	uint8_t *pucL3Hdr;
-	uint8_t ucSeqNo;
+	struct ADAPTER *prAdapter = NULL;
 
 	prAdapter = prGlueInfo->prAdapter;
 	ucIpv6Proto = pucIpv6Hdr[IPV6_HDR_IP_PROTOCOL_OFFSET];
@@ -2925,10 +2919,6 @@ kalIPv6FrameClassifier(IN struct GLUE_INFO *prGlueInfo,
 		}
 #endif /* CFG_TCP_IP_CHKSUM_OFFLOAD */
 #endif /* Automation */
-	} else if (ucIpv6Proto == IP_PRO_ICMPV6) {
-		ucSeqNo = nicIncreaseTxSeqNum(prGlueInfo->prAdapter);
-		GLUE_SET_PKT_SEQ_NO(prPacket, ucSeqNo);
-		prTxPktInfo->u2Flag |= BIT(ENUM_PKT_ICMPV6);
 	}
 
 	return TRUE;
@@ -3116,8 +3106,12 @@ kalQoSFrameClassifierAndPacketInfo(IN struct GLUE_INFO *prGlueInfo,
 		break;
 
 	case ETH_P_IPV6:
+#if CFG_SUPPORT_WIFI_SYSDVT
+#if (CFG_TCP_IP_CHKSUM_OFFLOAD)
 		kalIPv6FrameClassifier(prGlueInfo, prPacket,
 				       pucNextProtocol, prTxPktInfo);
+#endif
+#endif
 		break;
 
 	default:
@@ -7731,7 +7725,7 @@ void kalSetPerfReport(IN struct ADAPTER *prAdapter)
 	struct CMD_PERF_IND *prCmdPerfReport;
 	uint8_t i;
 	uint32_t u4CurrentTp = 0;
-	uint32_t u4Rate = 0, u4MaxRate = 0;
+	uint32_t u4Rate = 0, u4MaxRate = 0, u4Bw = 0;
 	int ret;
 
 	DEBUGFUNC("kalSetPerfReport()");
@@ -7752,7 +7746,7 @@ void kalSetPerfReport(IN struct ADAPTER *prAdapter)
 
 	prCmdPerfReport->u4VaildPeriod = PERF_UPDATE_PERIOD;
 	ret = wlanGetRxRate(prAdapter->prGlueInfo, 0, &u4Rate, &u4MaxRate,
-			    NULL);
+			    &u4Bw);
 	u4Rate /= 10;
 
 	for (i = 0; i < BSS_DEFAULT_NUM; i++) {
@@ -8021,7 +8015,7 @@ static uint32_t kalPerMonUpdate(IN struct ADAPTER *prAdapter)
 	}
 
 	for (i = 0; i < BSS_DEFAULT_NUM; i++) {
-		ndev = wlanGetNetInterfaceByBssIdx(glue, i);
+		ndev = wlanGetNetDev(glue, i);
 		bss = GET_BSS_INFO_BY_INDEX(prAdapter, i);
 		if (IS_BSS_ALIVE(prAdapter, bss) && ndev) {
 			currentTxBytes = ndev->stats.tx_bytes;
@@ -8194,65 +8188,6 @@ fail:
 	return WLAN_STATUS_FAILURE;
 }
 
-#if CFG_SUPPORT_MCC_BOOST_CPU
-void kalMccBoostCheck(struct ADAPTER *prAdapter, uint32_t u4TputLv)
-{
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
-	struct BSS_INFO *prBssInfo;
-	u_int8_t fgMccBoost = FALSE;
-	uint8_t i;
-
-	if (!cnmIsMccMode(prAdapter))
-		goto end;
-
-	if (u4TputLv < prWifiVar->u4MccBoostTputLvTh)
-		goto end;
-
-	for (i = 0; i < MAX_BSSID_NUM; i++) {
-		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, i);
-		if (!IS_BSS_ALIVE(prAdapter, prBssInfo))
-			continue;
-
-		/* no ready yet */
-		if (prBssInfo->u4PresentTime == 0)
-			continue;
-
-		if (prBssInfo->u4PresentTime <
-				prWifiVar->u4MccBoostPresentTime) {
-			fgMccBoost = TRUE;
-			DBGLOG(INIT, INFO,
-				"B:%u P:%u TputLv:%d State:%u->%u\n",
-				i, prBssInfo->u4PresentTime, u4TputLv,
-				prAdapter->fgMccBoost, fgMccBoost);
-		}
-	}
-
-	/* Boost CPU when Tput > 100Mbps */
-	if (u4TputLv >= prWifiVar->u4MccBoostForAllTputLvTh) {
-		fgMccBoost = TRUE;
-		DBGLOG(INIT, INFO, "TputLv:%u Th:%u State:%u->%u\n",
-			u4TputLv,
-			prWifiVar->u4MccBoostForAllTputLvTh,
-			prAdapter->fgMccBoost, fgMccBoost);
-	}
-
-end:
-	prAdapter->fgMccStateChange =
-		(prAdapter->fgMccBoost != fgMccBoost) ? TRUE : FALSE;
-	prAdapter->fgMccBoost = fgMccBoost;
-}
-
-u_int8_t kalIsMccStateChange(struct ADAPTER *prAdapter)
-{
-	return prAdapter->fgMccStateChange;
-}
-
-u_int8_t kalIsMccBoost(struct ADAPTER *prAdapter)
-{
-	return prAdapter->fgMccBoost;
-}
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-
 void kalPerMonHandler(IN struct ADAPTER *prAdapter,
 		      unsigned long ulParam)
 {
@@ -8284,7 +8219,7 @@ void kalPerMonHandler(IN struct ADAPTER *prAdapter,
 		struct BSS_INFO *prBssInfo;
 
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, i);
-		prDevHandler = wlanGetNetInterfaceByBssIdx(prGlueInfo, i);
+		prDevHandler = wlanGetNetDev(prGlueInfo, i);
 		if (IS_BSS_ALIVE(prAdapter, prBssInfo) && prDevHandler) {
 			keep_alive |= netif_carrier_ok(prDevHandler);
 
@@ -8344,11 +8279,6 @@ void kalPerMonHandler(IN struct ADAPTER *prAdapter,
 			!keep_alive))
 		kalPerMonStop(prGlueInfo);
 	else {
-
-#if CFG_SUPPORT_MCC_BOOST_CPU
-		kalMccBoostCheck(prAdapter, prPerMonitor->u4TarPerfLevel);
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-
 		if (kalCheckTputLoad(prAdapter,
 			prPerMonitor->u4CurrPerfLevel,
 			prPerMonitor->u4TarPerfLevel,
@@ -8370,12 +8300,9 @@ void kalPerMonHandler(IN struct ADAPTER *prAdapter,
 			kalBoostCpu(prAdapter,
 				prPerMonitor->u4TarPerfLevel,
 				prPerMonitor->u4TarPerfLevel);
-		} else if (((prPerMonitor->u4TarPerfLevel !=
-				prPerMonitor->u4CurrPerfLevel)
-#if CFG_SUPPORT_MCC_BOOST_CPU
-			|| kalIsMccStateChange(prAdapter)
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-			) && (u4BoostCpuTh < PERF_MON_TP_MAX_THRESHOLD)) {
+		} else if ((prPerMonitor->u4TarPerfLevel !=
+		     prPerMonitor->u4CurrPerfLevel) &&
+		    (u4BoostCpuTh < PERF_MON_TP_MAX_THRESHOLD)) {
 
 			DBGLOG(SW4, INFO,
 			"PerfMon total:%3lu.%03lu mbps lv:%u th:%u fg:0x%lx\n",
@@ -8386,16 +8313,8 @@ void kalPerMonHandler(IN struct ADAPTER *prAdapter,
 			u4BoostCpuTh,
 			prPerMonitor->ulPerfMonFlag);
 
-#if CFG_SUPPORT_MCC_BOOST_CPU
-			if (kalIsMccBoost(prAdapter)) {
-				kalBoostCpu(prAdapter,
-					PERF_MON_TP_MAX_THRESHOLD - 1,
-					PERF_MON_TP_MAX_THRESHOLD - 1);
-			} else
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-				kalBoostCpu(prAdapter,
-					    prPerMonitor->u4TarPerfLevel,
-					    u4BoostCpuTh);
+			kalBoostCpu(prAdapter, prPerMonitor->u4TarPerfLevel,
+				    u4BoostCpuTh);
 		}
 
 		prPerMonitor->u4UpdatePeriod =
@@ -9037,18 +8956,16 @@ struct BUFFERED_LOG_ENTRY *kalGetBufferLog(struct ADAPTER *prAdapter,
 
 	if (ucBssIndex >= KAL_BSS_NUM)
 		return NULL;
-	
-	if (!LINK_IS_EMPTY(list)) {
-		LINK_FOR_EACH_ENTRY(entry, list, rLinkEntry, struct BUFFERED_LOG_ENTRY)
-		{
-			if (entry->ucSn == ucSn && entry->ucBssIdx == ucBssIndex) {
-				DBGLOG(AIS, WARN, "Found bss[%d] sn[%d]\n",
-					ucBssIndex, ucSn);
-				return entry;
-			}
+
+	LINK_FOR_EACH_ENTRY(entry, list, rLinkEntry, struct BUFFERED_LOG_ENTRY)
+	{
+		if (entry->ucSn == ucSn && entry->ucBssIdx == ucBssIndex) {
+			DBGLOG(AIS, WARN, "Found bss[%d] sn[%d]\n",
+				ucBssIndex, ucSn);
+			return entry;
 		}
 	}
-	
+
 	return NULL;
 }
 
@@ -10175,204 +10092,7 @@ uint32_t kalDumpPwrLevel(IN struct ADAPTER *prAdapter)
 #endif
 
 #if CFG_SUPPORT_NAN
-#ifdef CFG_SUPPORT_UNIFIED_COMMAND
-static const char *nan_unisubevent_str(uint32_t u4SubEvent)
-{
-	static const char * const subevent_string[UNI_EVENT_NAN_TAG_NUM] = {
-		[UNI_EVENT_NAN_TAG_DISCOVERY_RESULT] = "Discovery Result",
-		[UNI_EVENT_NAN_TAG_FOLLOW_EVENT] = "Follow",
-		[UNI_EVENT_NAN_TAG_MASTER_IND_ATTR] = "Master Ind",
-		[UNI_EVENT_NAN_TAG_CLUSTER_ID_UPDATE] = "Cluster ID Update",
-		[UNI_EVENT_NAN_TAG_REPLIED_EVENT] = "Replied",
-		[UNI_EVENT_NAN_TAG_PUBLISH_TERMINATE_EVENT] =
-			"Publish Terminate",
-		[UNI_EVENT_NAN_TAG_SUBSCRIBE_TERMINATE_EVENT] =
-			"Subscribe Terminate",
-		[UNI_EVENT_NAN_TAG_ID_SCHEDULE_CONFIG] = "Schedule Config",
-		[UNI_EVENT_NAN_TAG_ID_PEER_AVAILABILITY] = "Peer Availability",
-		[UNI_EVENT_NAN_TAG_ID_PEER_CAPABILITY] = "Peer Capability",
-		[UNI_EVENT_NAN_TAG_ID_CRB_HANDSHAKE_TOKEN] =
-			"CRB Handshake Token",
-		[UNI_EVENT_NAN_TAG_ID_DATA_NOTIFY] = "Data Notify",
-		[UNI_EVENT_NAN_TAG_FTM_DONE] = "FTM Done",
-		[UNI_EVENT_NAN_TAG_RANGING_BY_DISC] = "Ranging by Disc",
-		[UNI_EVENT_NAN_TAG_NDL_FLOW_CTRL] = "NDL Flow Ctrl",
-		[UNI_EVENT_NAN_TAG_DW_INTERVAL] = "DW Interval",
-		[UNI_EVENT_NAN_TAG_NDL_DISCONNECT] = "NDL Disconnect",
-		[UNI_EVENT_NAN_TAG_ID_PEER_CIPHER_SUITE_INFO] =
-			"Peer Cipher Suite Info (CSIA)",
-		[UNI_EVENT_NAN_TAG_ID_PEER_SEC_CONTEXT_INFO] =
-			"Peer Security Context Info (SCIA)",
-		[UNI_EVENT_NAN_TAG_ID_DE_EVENT_IND] = "DE Event",
-		[UNI_EVENT_NAN_TAG_SELF_FOLLOW_EVENT] = "Self Follow",
-		[UNI_EVENT_NAN_TAG_DISABLE_IND] = "Disable",
-		[UNI_EVENT_NAN_TAG_NDL_FLOW_CTRL_V2] = "NDL Flow Ctrl v2",
-		[UNI_EVENT_NAN_TAG_ID_DEVICE_CAPABILITY] = "Device Capability",
-		[UNI_EVENT_NAN_ID_MATCH_EXPIRE] = "Match Expire",
-	};
-
-	if (u4SubEvent < UNI_EVENT_NAN_TAG_NUM)
-		return subevent_string[u4SubEvent];
-	else
-		return "";
-}
-
-void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer)
-{
-	struct UNI_CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
-	uint32_t u4SubEvent;
-	int status = 0;
-
-	ASSERT(prAdapter);
-
-	prTlvElement =
-	(struct UNI_CMD_EVENT_TLV_ELEMENT_T *)prBuffer;
-
-	u4SubEvent = prTlvElement->u2Tag;
-
-	DBGLOG(NAN, INFO, "subEvent:%d (%s)\n", u4SubEvent,
-			nan_unisubevent_str(u4SubEvent));
-
-	switch (u4SubEvent) {
-	case UNI_EVENT_NAN_TAG_ID_DE_EVENT_IND:
-		status = mtk_cfg80211_vendor_event_nan_event_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_DISCOVERY_RESULT:
-		status = mtk_cfg80211_vendor_event_nan_match_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_FOLLOW_EVENT:
-		status = mtk_cfg80211_vendor_event_nan_followup_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_REPLIED_EVENT:
-		status = mtk_cfg80211_vendor_event_nan_replied_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_PUBLISH_TERMINATE_EVENT:
-		status = mtk_cfg80211_vendor_event_nan_publish_terminate(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_SUBSCRIBE_TERMINATE_EVENT:
-		status = mtk_cfg80211_vendor_event_nan_subscribe_terminate(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_SELF_FOLLOW_EVENT:
-		status = mtk_cfg80211_vendor_event_nan_seldflwup_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_MASTER_IND_ATTR:
-		nanDevMasterIndEvtHandler(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_CLUSTER_ID_UPDATE:
-		nanDevClusterIdEvtHandler(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_SCHEDULE_CONFIG:
-		status = mtk_cfg80211_vendor_event_nan_schedule_config(
-			prAdapter, prTlvElement->aucbody);
-		kal_fallthrough;
-	case UNI_EVENT_NAN_TAG_ID_PEER_AVAILABILITY:
-	case UNI_EVENT_NAN_TAG_ID_PEER_CAPABILITY:
-	case UNI_EVENT_NAN_TAG_ID_CRB_HANDSHAKE_TOKEN:
-	case UNI_EVENT_NAN_TAG_ID_DEVICE_CAPABILITY:
-		nanSchedulerUniEventDispatch(prAdapter, u4SubEvent,
-					  prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_PEER_SEC_CONTEXT_INFO:
-		nanDiscUpdateSecContextInfoAttr(prAdapter,
-						prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_PEER_CIPHER_SUITE_INFO:
-		nanDiscUpdateCipherSuiteInfoAttr(prAdapter,
-						 prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_DATA_NOTIFY:
-		nicNanEventSTATxCTL(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_FTM_DONE:
-		nanRangingFtmDoneEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_RANGING_BY_DISC:
-		nanRangingInvokedByDiscEvt(prAdapter, prTlvElement->aucbody);
-		break;
-#if CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL
-	case UNI_EVENT_NAN_TAG_NDL_FLOW_CTRL:
-		nicNanNdlFlowCtrlEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_NDL_FLOW_CTRL_V2:
-		nicNanNdlFlowCtrlEvtV2(prAdapter, prTlvElement->aucbody);
-		break;
-#endif
-	case UNI_EVENT_NAN_TAG_NDL_DISCONNECT:
-		nanDataEngingDisconnectEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_DISABLE_IND:
-		mtk_cfg80211_vendor_event_nan_disable_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_ID_MATCH_EXPIRE:
-		status = mtk_cfg80211_vendor_event_nan_match_expire(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	default:
-		DBGLOG(NAN, LOUD, "No match event!!\n");
-		break;
-	}
-}
-
-#else
-static const char *nan_subevent_str(uint32_t u4SubEvent)
-{
-	static const char * const subevent_string[NAN_EVENT_NUM] = {
-	[NAN_EVENT_TEST] = "Test", /* 0 */
-	[NAN_EVENT_DISCOVERY_RESULT] = "Discovery Result",
-	[NAN_EVENT_FOLLOW_EVENT] = "Follow",
-	[NAN_EVENT_MASTER_IND_ATTR] = "Master Ind",
-	[NAN_EVENT_CLUSTER_ID_UPDATE] = "Cluster ID Update",
-	[NAN_EVENT_REPLIED_EVENT] = "Replied",
-	[NAN_EVENT_PUBLISH_TERMINATE_EVENT] = "Publish Terminate",
-	[NAN_EVENT_SUBSCRIBE_TERMINATE_EVENT] = "Subscribe Terminate",
-	[NAN_EVENT_ID_SCHEDULE_CONFIG] = "Schedule Config",
-	[NAN_EVENT_ID_PEER_AVAILABILITY] = "Peer Availability",
-	[NAN_EVENT_ID_PEER_CAPABILITY] = "Peer Capability",
-	[NAN_EVENT_ID_CRB_HANDSHAKE_TOKEN] = "CRB Handshake Token",
-	[NAN_EVENT_ID_DATA_NOTIFY] = "Data Notify",
-	[NAN_EVENT_FTM_DONE] = "FTM Done",
-	[NAN_EVENT_RANGING_BY_DISC] = "Ranging by Disc",
-	[NAN_EVENT_NDL_FLOW_CTRL] = "NDL Flow Ctrl",
-	[NAN_EVENT_DW_INTERVAL] = "DW Interval",
-	[NAN_EVENT_NDL_DISCONNECT] = "NDL Disconnect",
-	[NAN_EVENT_ID_PEER_CIPHER_SUITE_INFO] = "Peer Cipher Suite Info (CSIA)",
-	[NAN_EVENT_ID_PEER_SEC_CONTEXT_INFO] =
-		"Peer Security Context Info (SCIA)",
-	[NAN_EVENT_ID_DE_EVENT_IND] = "DE Event",
-	[NAN_EVENT_SELF_FOLLOW_EVENT] = "Self Follow",
-	[NAN_EVENT_DISABLE_IND] = "Disable",
-	[NAN_EVENT_NDL_FLOW_CTRL_V2] = "NDL Flow Ctrl v2",
-	[NAN_EVENT_ID_DEVICE_CAPABILITY] = "Device Capability",
-	[NAN_EVENT_DISC_BCN_PERIOD] = "Discovery Beacon",
-	[NAN_EVENT_SERVICE_DISC_CAPABILITY] =  "Service Discovery Capability",
-	[NAN_EVENT_DEVICE_INFO] = "Device Info",
-	[NAN_EVENT_REPORT_BEACON] = "Report Beacon",
-	[NAN_EVENT_MATCH_EXPIRE] = "Match Expire",
-	[NAN_EVENT_CLEAR_FAW_BITMAP] = "Clear FAW Bitmap",
-
-	[NAN_EVENT_VENDOR_DISCOVERY_RESULT] = "Vendor Discovery Result",
-	[NAN_EVENT_VENDOR_PUBLISH_REPLIED_EVENT] = "Vendor Publish Replied",
-	[NAN_EVENT_VENDOR_FOLLOW_UP_RX_EVENT] = "Vendor Follow up RX",
-	[NAN_EVENT_VENDOR_FOLLOW_UP_TX_EVENT] =  "Vendor Follow up TX",
-	};
-
-	if (u4SubEvent <= NAN_EVENT_MATCH_EXPIRE ||
-	    u4SubEvent >= NAN_EVENT_VENDOR_DISCOVERY_RESULT &&
-	    u4SubEvent < NAN_EVENT_NUM)
-		return subevent_string[u4SubEvent];
-	else
-		return "";
-}
-
-void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer)
+void kalNanHandleVendorEvent(IN struct ADAPTER *prAdapter, uint8_t *prBuffer)
 {
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
@@ -10387,14 +10107,9 @@ void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer)
 
 	u4SubEvent = prTlvElement->tag_type;
 
-	DBGLOG(NAN, INFO, "subEvent:%d (%s)\n", u4SubEvent,
-				nan_subevent_str(u4SubEvent));
+	DBGLOG(NAN, INFO, "[%s] subEvent:%d\n", __func__, u4SubEvent);
 
 	switch (u4SubEvent) {
-	case NAN_EVENT_ID_DE_EVENT_IND:
-		status = mtk_cfg80211_vendor_event_nan_event_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
 	case NAN_EVENT_DISCOVERY_RESULT:
 		status = mtk_cfg80211_vendor_event_nan_match_indication(
 			prAdapter, prTlvElement->aucbody);
@@ -10415,10 +10130,6 @@ void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer)
 		status = mtk_cfg80211_vendor_event_nan_subscribe_terminate(
 			prAdapter, prTlvElement->aucbody);
 		break;
-	case NAN_EVENT_SELF_FOLLOW_EVENT:
-		status = mtk_cfg80211_vendor_event_nan_seldflwup_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
 	case NAN_EVENT_MASTER_IND_ATTR:
 		nanDevMasterIndEvtHandler(prAdapter, prTlvElement->aucbody);
 		break;
@@ -10426,13 +10137,9 @@ void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer)
 		nanDevClusterIdEvtHandler(prAdapter, prTlvElement->aucbody);
 		break;
 	case NAN_EVENT_ID_SCHEDULE_CONFIG:
-		status = mtk_cfg80211_vendor_event_nan_schedule_config(
-			prAdapter, prTlvElement->aucbody);
-		kal_fallthrough;
 	case NAN_EVENT_ID_PEER_AVAILABILITY:
 	case NAN_EVENT_ID_PEER_CAPABILITY:
 	case NAN_EVENT_ID_CRB_HANDSHAKE_TOKEN:
-	case NAN_EVENT_ID_DEVICE_CAPABILITY:
 		nanSchedulerEventDispatch(prAdapter, u4SubEvent,
 					  prTlvElement->aucbody);
 		break;
@@ -10457,56 +10164,14 @@ void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer)
 	case NAN_EVENT_NDL_FLOW_CTRL:
 		nicNanNdlFlowCtrlEvt(prAdapter, prTlvElement->aucbody);
 		break;
-	case NAN_EVENT_NDL_FLOW_CTRL_V2:
-		nicNanNdlFlowCtrlEvtV2(prAdapter, prTlvElement->aucbody);
-		break;
 #endif
 	case NAN_EVENT_NDL_DISCONNECT:
 		nanDataEngingDisconnectEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case NAN_EVENT_DISABLE_IND:
-		mtk_cfg80211_vendor_event_nan_disable_indication(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case NAN_EVENT_MATCH_EXPIRE:
-		mtk_cfg80211_vendor_event_nan_match_expire(
-			prAdapter, prTlvElement->aucbody);
-		break;
-	case NAN_EVENT_DEVICE_INFO:
-		break;
-	case NAN_EVENT_CLEAR_FAW_BITMAP:
-		nanSchedEventClearFAWBitmap(prAdapter, prTlvElement->aucbody);
-		break;
 	default:
 		DBGLOG(NAN, LOUD, "No match event!!\n");
 		break;
 	}
 }
-#endif
-
-void kalNanHandlePendingCmd(IN struct ADAPTER *prAdapter,
-	IN uint8_t *prBuffer)
-{
-	struct WIFI_EVENT *prEvent = (struct WIFI_EVENT *)prBuffer;
-	struct CMD_INFO *prCmdInfo;
-
-	/* command response handling */
-	prCmdInfo = nicGetPendingCmdInfo(prAdapter,
-					 prEvent->ucSeqNum);
-
-	if (prCmdInfo != NULL) {
-		if (prCmdInfo->pfCmdDoneHandler)
-			prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo,
-							prEvent->aucBuffer);
-		else if (prCmdInfo->fgIsOid)
-			kalOidComplete(prAdapter->prGlueInfo,
-							prCmdInfo,
-							0, WLAN_STATUS_SUCCESS);
-		/* return prCmdInfo */
-		cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
-	}
-}
-
 #endif
 
 void nicEventTputFactorHandler(IN struct ADAPTER *prAdapter,

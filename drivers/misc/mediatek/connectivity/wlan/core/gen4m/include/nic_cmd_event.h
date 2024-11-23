@@ -156,7 +156,6 @@
 #define NETWORK_MESH	BIT(19)
 #define NETWORK_BOW		BIT(20)
 #define NETWORK_WDS		BIT(21)
-#define NETWORK_NAN     BIT(22)
 
 /* Station role */
 #define STA_TYPE_STA BIT(0)
@@ -173,7 +172,6 @@
 #define CONNECTION_MESH_STA		(STA_TYPE_STA|NETWORK_MESH)
 #define CONNECTION_MESH_AP		(STA_TYPE_AP|NETWORK_MESH)
 #define CONNECTION_IBSS_ADHOC		(STA_TYPE_ADHOC|NETWORK_IBSS)
-#define CONNECTION_NAN                  (NETWORK_NAN)
 #define CONNECTION_TDLS	\
 		(STA_TYPE_STA|NETWORK_INFRA|STA_TYPE_TDLS)
 #define CONNECTION_WDS			(STA_TYPE_WDS|NETWORK_WDS)
@@ -3205,36 +3203,6 @@ struct _NAN_CMD_UPDATE_ATTR_STRUCT {
 	uint8_t aucAttrBuf[1024];
 };
 
-struct _NAN_CMD_DW_INTERVAL_T {
-	uint8_t ucDWInterval;
-	uint8_t aucReserved[3];
-};
-
-struct _NAN_CMD_GET_DEVICE_INFO {
-	uint8_t ucVersion;
-	uint8_t aucReserved[3];
-};
-
-struct _NAN_EVENT_DEVICE_INFO {
-	uint8_t ucIsEnabled;
-	uint8_t aucSelfMacAddr[MAC_ADDR_LEN];
-	uint8_t ucFwElectionEnable;
-	uint32_t u4NanDeviceRole;
-	uint32_t u4NanDeviceState;
-	uint8_t ucMasterPreference;
-	uint8_t ucRandomFactor;
-	uint8_t ucHopCount;
-	uint8_t aucClusterID[MAC_ADDR_LEN];
-	uint8_t aucAnchorMasterMacAddr[MAC_ADDR_LEN];
-	uint8_t ucAmMasterPreference;
-	uint8_t ucAmRandomFactor;
-	uint8_t aucParentMacAddr[MAC_ADDR_LEN];
-	uint8_t ucParentMasterPreference;
-	uint8_t ucParentRandomFactor;
-	uint32_t u4AMBTT;
-	uint32_t au4Tsf[2];
-};
-
 enum _ENUM_NAN_SUB_CMD {
 	NAN_CMD_TEST, /* 0 */
 	NAN_TXM_TEST,
@@ -3261,13 +3229,8 @@ enum _ENUM_NAN_SUB_CMD {
 	NAN_CMD_UPDATE_POTENTIAL_CHNL_LIST,
 	NAN_CMD_UPDATE_AVAILABILITY_CTRL,
 	NAN_CMD_UPDATE_PEER_CAPABILITY,
-	NAN_CMD_ADD_CSID, /* 25 */
+	NAN_CMD_ADD_CSID,
 	NAN_CMD_MANAGE_SCID,
-	NAN_CMD_CHANGE_ADDRESS,
-	NAN_CMD_SET_SCHED_VERSION,
-	NAN_CMD_GET_DEVICE_INFO = 33,
-
-	NAN_CMD_SET_DW_INTERVAL = 40,
 
 	NAN_CMD_NUM
 };
@@ -3293,25 +3256,8 @@ enum _ENUM_NAN_SUB_EVENT {
 	NAN_EVENT_NDL_DISCONNECT,
 	NAN_EVENT_ID_PEER_CIPHER_SUITE_INFO,
 	NAN_EVENT_ID_PEER_SEC_CONTEXT_INFO,
-	NAN_EVENT_ID_DE_EVENT_IND,	/* 20 */
-	NAN_EVENT_SELF_FOLLOW_EVENT,
-	NAN_EVENT_DISABLE_IND,
-	NAN_EVENT_NDL_FLOW_CTRL_V2,
-	NAN_EVENT_ID_DEVICE_CAPABILITY,
-	NAN_EVENT_DISC_BCN_PERIOD = 25,  /* 25 */
-	NAN_EVENT_SERVICE_DISC_CAPABILITY,
-	NAN_EVENT_DEVICE_INFO,
-	NAN_EVENT_REPORT_BEACON,
-	NAN_EVENT_MATCH_EXPIRE,
-	NAN_EVENT_CLEAR_FAW_BITMAP,
-
-	NAN_EVENT_VENDOR_DISCOVERY_RESULT = 50, /* 50 */
-	NAN_EVENT_VENDOR_PUBLISH_REPLIED_EVENT,
-	NAN_EVENT_VENDOR_FOLLOW_UP_RX_EVENT,
-	NAN_EVENT_VENDOR_FOLLOW_UP_TX_EVENT,
 
 	NAN_EVENT_NUM
-
 };
 #endif
 /*******************************************************************************
@@ -3665,32 +3611,27 @@ void nicEventUpdateLowLatencyInfoStatus(IN struct ADAPTER *prAdapter,
 
 #if CFG_SUPPORT_NAN
 struct _CMD_EVENT_TLV_ELEMENT_T *
-nicGetTargetTlvElement(uint16_t u2TargetTlvElement, void *prCmdBuffer);
+nicGetTargetTlvElement(IN uint16_t u2TargetTlvElement, IN void *prCmdBuffer);
 
-uint32_t nicAddNewTlvElement(uint32_t u4Tag, uint32_t u4BodyLen,
-			     uint32_t prCmdBufferLen, void *prCmdBuffer);
+uint32_t nicAddNewTlvElement(IN uint32_t u4Tag, IN uint32_t u4BodyLen,
+			     IN uint32_t prCmdBufferLen, IN void *prCmdBuffer);
 
-uint32_t nicDumpTlv(void *prCmdBuffer);
-void nicNanEventTestProcess(struct ADAPTER *prAdapter,
-			    struct WIFI_EVENT *prEvent);
-void nicNanEventDispatcher(struct ADAPTER *prAdapter,
-			   struct WIFI_EVENT *prEvent);
-void nicNanIOEventHandler(struct ADAPTER *prAdapter,
-			  struct WIFI_EVENT *prEvent);
+uint32_t nicDumpTlv(IN void *prCmdBuffer);
+void nicNanEventTestProcess(IN struct ADAPTER *prAdapter,
+			    IN struct WIFI_EVENT *prEvent);
+void nicNanEventDispatcher(IN struct ADAPTER *prAdapter,
+			   IN struct WIFI_EVENT *prEvent);
+void nicNanIOEventHandler(IN struct ADAPTER *prAdapter,
+			  IN struct WIFI_EVENT *prEvent);
 void nicNanGetCmdInfoQueryTestBuffer(
 	struct _TXM_CMD_EVENT_TEST_T **prCmdInfoQueryTestBuffer);
-void nicNanTestQueryInfoDone(struct ADAPTER *prAdapter,
-			     struct CMD_INFO *prCmdInfo,
-			     uint8_t *pucEventBuf);
-void nicNanEventSTATxCTL(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf);
-
-#if CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL
-void nicNanNdlFlowCtrlEvt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf);
-void nicNanNdlFlowCtrlEvtV2(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf);
-#endif
-
-void nicNanVendorEventHandler(struct ADAPTER *prAdapter,
-			      struct WIFI_EVENT *prEvent);
+void nicNanTestQueryInfoDone(IN struct ADAPTER *prAdapter,
+			     IN struct CMD_INFO *prCmdInfo,
+			     IN uint8_t *pucEventBuf);
+void nicNanEventSTATxCTL(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf);
+void nicNanNdlFlowCtrlEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf);
+void nicNanVendorEventHandler(IN struct ADAPTER *prAdapter,
+			      IN struct WIFI_EVENT *prEvent);
 #endif
 
 void nicEventReportUEvent(IN struct ADAPTER *prAdapter,

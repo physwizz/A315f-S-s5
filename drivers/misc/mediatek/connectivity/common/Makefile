@@ -34,6 +34,7 @@ endif
 KBUILD_MODPOST_FAIL_ON_WARNINGS := y
 ###############################################################################
 
+#ccflags-y += -D MTK_WCN_REMOVE_KERNEL_MODULE
 ifeq ($(CONFIG_ARM64), y)
     ccflags-y += -D CONFIG_MTK_WCN_ARM64
 endif
@@ -134,10 +135,6 @@ ifeq ($(CONFIG_MTK_COMBO_CHIP_MT6632),y)
 endif
 ifeq ($(COMBO_CHIP_SUPPORT), true)
     ccflags-y += -D MTK_WCN_COMBO_CHIP_SUPPORT
-endif
-
-ifeq ($(strip $(MTK_PLATFORM)), mt6765)
-    ccflags-y += -D WMT_PDMA_SLPPRT_MODE_SUPPORT
 endif
 
 ccflags-y += -I$(src)/common_main/linux/include

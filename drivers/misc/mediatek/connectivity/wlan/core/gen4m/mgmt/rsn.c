@@ -2112,8 +2112,7 @@ void rsnParserCheckForRSNCCMPPSK(struct ADAPTER *prAdapter,
 		if (prAdapter->rWifiVar.fgSapCheckPmkidInDriver
 			&& prBssInfo->u4RsnSelectedAKMSuite
 				== RSN_AKM_SUITE_SAE
-			&& rRsnIe.u2PmkidCount > 0
-			&& prStaRec->ucAuthAlgNum != AUTH_ALGORITHM_NUM_SAE) {
+			&& rRsnIe.u2PmkidCount > 0) {
 			struct PMKID_ENTRY *entry =
 				rsnSearchPmkidEntry(prAdapter,
 				prStaRec->aucMacAddr,

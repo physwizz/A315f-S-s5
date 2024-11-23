@@ -20,7 +20,6 @@
 #include "wmt_detect.h"
 #include "common_drv_init.h"
 
-
 int do_common_drv_init(int chip_id)
 {
 	int i_ret = 0;

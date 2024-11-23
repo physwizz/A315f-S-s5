@@ -447,7 +447,6 @@ static INT32 mtk_wmt_remove(struct platform_device *pdev)
 		if (wmt_consys_ic_ops->consys_ic_need_store_pdev() == MTK_WCN_BOOL_TRUE)
 			pm_runtime_disable(&pdev->dev);
 	}
-
 	if (wmt_consys_ic_ops->consys_ic_emi_coredump_remapping)
 		wmt_consys_ic_ops->consys_ic_emi_coredump_remapping(&pEmibaseaddr, 0);
 

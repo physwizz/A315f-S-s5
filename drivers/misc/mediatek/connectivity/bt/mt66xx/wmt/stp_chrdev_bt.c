@@ -395,7 +395,7 @@ static VOID BT_event_cb(VOID)
 unsigned int BT_poll(struct file *filp, poll_table *wait)
 {
 	UINT32 mask = 0;
-	
+
 	if ((mtk_wcn_stp_is_rxqueue_empty(BT_TASK_INDX) && rstflag == 0) ||
 	    (rstflag == 1) || (rstflag == 3)) {
 		/*
@@ -426,7 +426,7 @@ unsigned int BT_poll(struct file *filp, poll_table *wait)
 static ssize_t __bt_write(const PUINT8 buffer, size_t count)
 {
 	INT32 retval = mtk_wcn_stp_send_data(buffer, count, BT_TASK_INDX);
-	
+
 	if (retval < 0)
 		BT_LOG_PRT_ERR("mtk_wcn_stp_send_data fail, retval %d\n", retval);
 	else if (retval == 0) {
@@ -803,7 +803,7 @@ static int BT_open(struct inode *inode, struct file *file)
 static int BT_close(struct inode *inode, struct file *file)
 {
 	BT_LOG_PRT_INFO("major %d minor %d (pid %d)\n", imajor(inode), iminor(inode), current->pid);
-
+	
 	bthost_debug_init();
 	bt_pm_notify_unregister();
 	bt_dev_dbg_set_state(FALSE);

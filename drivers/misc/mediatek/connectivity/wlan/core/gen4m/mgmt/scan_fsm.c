@@ -531,7 +531,6 @@ void scnFsmMsgAbort(IN struct ADAPTER *prAdapter, IN struct MSG_HDR *prMsgHdr)
 			prScanCancel->ucBssIndex == prScanParam->ucBssIndex) {
 			enum ENUM_SCAN_STATUS eStatus = SCAN_STATUS_DONE;
 
-			kalMemZero(&rCmdScanCancel, sizeof(rCmdScanCancel));
 			/* send cancel message to firmware domain */
 			rCmdScanCancel.ucSeqNum = prScanParam->ucSeqNum;
 			rCmdScanCancel.ucIsExtChannel
@@ -1643,10 +1642,9 @@ scnDoZeroMdrdyRecoveryCheck(IN struct ADAPTER *prAdapter,
 						SER_ENABLE_L3_RX_ABORT |
 						SER_ENABLE_L3_TX_ABORT |
 						SER_ENABLE_L3_TX_DISABLE |
-						SER_ENABLE_L3_BF_RECOVER), 0,
-						FALSE);
+						SER_ENABLE_L3_BF_RECOVER), 0);
 				wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-					SER_SET_L1_RECOVER, 0, FALSE);
+					SER_SET_L1_RECOVER, 0);
 			}
 	}
 	/* Normal: Mdrdy>0 and beacon+ProbReq>0 case */

@@ -39,8 +39,6 @@ void mtk_wcn_gpsdl_drv_exit(void)
 }
 EXPORT_SYMBOL(mtk_wcn_gpsdl_drv_exit);
 
-/*
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Hua Fu");
-*/
 #endif

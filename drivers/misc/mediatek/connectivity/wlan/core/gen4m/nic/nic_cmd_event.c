@@ -915,9 +915,8 @@ void nicCmdEventQueryLinkSpeedEx(IN struct ADAPTER *prAdapter,
 	struct EVENT_LINK_QUALITY *prLinkQuality;
 	struct PARAM_LINK_SPEED_EX *pu4LinkSpeed;
 	struct GLUE_INFO *prGlueInfo;
-	uint32_t u4CurRxRate, u4MaxRxRate;
+	uint32_t u4CurRxRate, u4MaxRxRate, u4CurRxBw;
 	uint32_t u4QueryInfoLen;
-	struct RateInfo rRateInfo = {0};
 	uint32_t i;
 
 	ASSERT(prAdapter);
@@ -939,11 +938,13 @@ void nicCmdEventQueryLinkSpeedEx(IN struct ADAPTER *prAdapter,
 
 			/*Fill Rx Rate in unit of 100bps*/
 			if (IS_BSS_INDEX_AIS(prAdapter, i) &&
-			    wlanGetRxRate(prGlueInfo, i, &u4CurRxRate,
-				    &u4MaxRxRate, &rRateInfo) == 0) {
+				(wlanGetRxRate(prGlueInfo, i,
+							  &u4CurRxRate,
+							  &u4MaxRxRate,
+							  &u4CurRxBw) == 0)) {
 				pu4LinkSpeed->rLq[i].u2RxLinkSpeed =
 					u4CurRxRate * 1000;
-				pu4LinkSpeed->rLq[i].u4RxBw = rRateInfo.u4Bw;
+				pu4LinkSpeed->rLq[i].u4RxBw = u4CurRxBw;
 			} else {
 				pu4LinkSpeed->rLq[i].u2RxLinkSpeed = 0;
 				pu4LinkSpeed->rLq[i].u4RxBw = 0;
@@ -3979,12 +3980,6 @@ bool nicBeaconTimeoutFilterPolicy(IN struct ADAPTER *prAdapter,
 
 	GET_BOOT_SYSTIME(&u4CurrentTime);
 
-	if (ucBssIdx >= MAX_BSS_INDEX) {
-		DBGLOG(NIC, ERROR, "ucBssIdx = %d is abnormal\n",
-			ucBssIdx);
-		return FALSE;
-	}
-
 	DBGLOG(NIC, INFO,
 			"u4MonitorWindow: %d, u4CurrentTime: %d, u4LastRxTime: %d, u4LastTxTime: %d",
 			u4MonitorWindow, u4CurrentTime,
@@ -3992,11 +3987,6 @@ bool nicBeaconTimeoutFilterPolicy(IN struct ADAPTER *prAdapter,
 			prTxCtrl->u4LastTxTime[ucBssIdx]);
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIdx);
-	if (prBssInfo == NULL) {
-		DBGLOG(NIC, ERROR, "prBssInfo %d is NULL\n",
-			ucBssIdx);
-		return FALSE;
-	}
 
 	if (IS_BSS_AIS(prBssInfo)) {
 		if (ucBcnTimeoutReason == BEACON_TIMEOUT_REASON_HIGH_PER) {
@@ -4046,7 +4036,7 @@ void nicEventBeaconTimeout(IN struct ADAPTER *prAdapter,
 					   *) (prEvent->aucBuffer);
 
 		if (prEventBssBeaconTimeout->ucBssIndex >=
-		    MAX_BSS_INDEX)
+		    prAdapter->ucHwBssIdNum)
 			return;
 
 		DBGLOG(NIC, INFO, "Reason code: %d\n",
@@ -4066,11 +4056,6 @@ void nicEventBeaconTimeout(IN struct ADAPTER *prAdapter,
 
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 			prEventBssBeaconTimeout->ucBssIndex);
-		if (prBssInfo == NULL) {
-			DBGLOG(NIC, ERROR, "prBssInfo %d is NULL\n",
-				prEventBssBeaconTimeout->ucBssIndex);
-			return;
-		}
 
 		if (IS_BSS_AIS(prBssInfo)) {
 			uint8_t ucDisconnectReason =
@@ -4162,11 +4147,6 @@ void nicEventStaAgingTimeout(IN struct ADAPTER *prAdapter,
 
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 						  prStaRec->ucBssIndex);
-		if (prBssInfo == NULL) {
-			DBGLOG(NIC, ERROR, "prBssInfo %d is NULL",
-				prStaRec->ucBssIndex);
-			return;
-		}
 
 		bssRemoveClient(prAdapter, prBssInfo, prStaRec);
 
@@ -4948,7 +4928,7 @@ void nicEventUpdateLowLatencyInfoStatus(IN struct ADAPTER *prAdapter,
 #endif
 
 #if CFG_SUPPORT_NAN
-uint32_t nicDumpTlv(void *prCmdBuffer)
+uint32_t nicDumpTlv(IN void *prCmdBuffer)
 {
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
@@ -4964,10 +4944,6 @@ uint32_t nicDumpTlv(void *prCmdBuffer)
 	     u2ElementNum++) {
 		prTlvElement =
 			nicGetTargetTlvElement(u2ElementNum, prCmdBuffer);
-		if (!prTlvElement) {
-			DBGLOG(TX, ERROR, "prTlvElementis null\n");
-			return WLAN_STATUS_FAILURE;
-		}
 		DBGLOG(TX, INFO, "TLV(%d) start address:%p\n", u2ElementNum,
 		       prTlvElement);
 		DBGLOG(TX, INFO, "TLV(%d) tag_type:%d\n", u2ElementNum,
@@ -4987,7 +4963,7 @@ uint32_t nicDumpTlv(void *prCmdBuffer)
 }
 
 struct _CMD_EVENT_TLV_ELEMENT_T *nicGetTargetTlvElement(
-		   uint16_t u2TargetTlvElement, void *prCmdBuffer)
+		   IN uint16_t u2TargetTlvElement, IN void *prCmdBuffer)
 {
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
@@ -4996,17 +4972,17 @@ struct _CMD_EVENT_TLV_ELEMENT_T *nicGetTargetTlvElement(
 
 	prTlvCommon = (struct _CMD_EVENT_TLV_COMMOM_T *)prCmdBuffer;
 
-	/* Check target element is exist or not */
+	/*Check target element is exist or not*/
 	if (u2TargetTlvElement > prTlvCommon->u2TotalElementNum) {
-		/* New element or element is not exist */
+		/*New element or element is not exist*/
 		if (u2TargetTlvElement - prTlvCommon->u2TotalElementNum > 1) {
-			/* element is not exist */
+			/*element is not exist*/
 			DBGLOG(TX, ERROR, "Target element is not exist\n");
 			return NULL;
 		}
 	}
 
-	/* Get target element */
+	/*Get target element*/
 	pvCurrPtr = prCmdBuffer;
 
 	for (u2ElementNum = 1; u2ElementNum <= u2TargetTlvElement;
@@ -5024,8 +5000,8 @@ struct _CMD_EVENT_TLV_ELEMENT_T *nicGetTargetTlvElement(
 	return prTlvElement;
 }
 
-uint32_t nicAddNewTlvElement(uint32_t u4Tag, uint32_t u4BodyLen,
-		    uint32_t prCmdBufferLen, void *prCmdBuffer)
+uint32_t nicAddNewTlvElement(IN uint32_t u4Tag, IN uint32_t u4BodyLen,
+		    IN uint32_t prCmdBufferLen, IN void *prCmdBuffer)
 {
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
@@ -5033,7 +5009,7 @@ uint32_t nicAddNewTlvElement(uint32_t u4Tag, uint32_t u4BodyLen,
 
 	prTlvCommon = (struct _CMD_EVENT_TLV_COMMOM_T *)prCmdBuffer;
 
-	/* Get new element */
+	/*Get new element*/
 	prTlvElement = nicGetTargetTlvElement(
 		prTlvCommon->u2TotalElementNum + 1, prCmdBuffer);
 
@@ -5042,22 +5018,22 @@ uint32_t nicAddNewTlvElement(uint32_t u4Tag, uint32_t u4BodyLen,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	/* Check tatol len is overflow or not */
+	/*Check tatol len is overflow or not*/
 	u4TotalLen = ((size_t)prTlvElement->aucbody + u4BodyLen) -
 		     (size_t)prCmdBuffer;
 
 	if (u4TotalLen > prCmdBufferLen) {
-		/* Length overflow */
+		/*Length overflow*/
 		DBGLOG(TX, ERROR,
 		       "Length overflow: Total len:%d, CMD buffer len:%d\n",
 		       u4TotalLen, prCmdBufferLen);
 		return WLAN_STATUS_NOT_ACCEPTED;
 	}
 
-	/* Update total element count */
+	/*Update total element count*/
 	prTlvCommon->u2TotalElementNum++;
 
-	/* Fill TLV constant */
+	/*Fill TLV constant*/
 	prTlvElement->tag_type = u4Tag;
 
 	prTlvElement->body_len = u4BodyLen;
@@ -5065,8 +5041,8 @@ uint32_t nicAddNewTlvElement(uint32_t u4Tag, uint32_t u4BodyLen,
 	return WLAN_STATUS_SUCCESS;
 }
 
-void nicNanEventTestProcess(struct ADAPTER *prAdapter,
-		       struct WIFI_EVENT *prEvent)
+void nicNanEventTestProcess(IN struct ADAPTER *prAdapter,
+		       IN struct WIFI_EVENT *prEvent)
 {
 	struct CMD_INFO *prCmdInfo;
 
@@ -5081,10 +5057,10 @@ void nicNanEventTestProcess(struct ADAPTER *prAdapter,
 
 	DBGLOG(TX, INFO, "nicNanEventDispatcher\n");
 
-	/* Dump Event content */
+	/*Dump Event content*/
 	nicDumpTlv((void *)prEvent->aucBuffer);
 
-	/* Process CMD done handler */
+	/*Process CMD done handler*/
 	prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
 
 	if (prCmdInfo != NULL) {
@@ -5100,7 +5076,7 @@ void nicNanEventTestProcess(struct ADAPTER *prAdapter,
 	}
 }
 
-void nicNanEventSTATxCTL(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
+void nicNanEventSTATxCTL(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf)
 {
 	struct EVENT_UPDATE_NAN_TX_STATUS *prUpdateTxStatus;
 
@@ -5108,8 +5084,8 @@ void nicNanEventSTATxCTL(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
 	qmUpdateFreeNANQouta(prAdapter, prUpdateTxStatus);
 }
 
-void nicNanVendorEventHandler(struct ADAPTER *prAdapter,
-			 struct WIFI_EVENT *prEvent)
+void nicNanVendorEventHandler(IN struct ADAPTER *prAdapter,
+			 IN struct WIFI_EVENT *prEvent)
 {
 	ASSERT(prAdapter);
 	ASSERT(prEvent);
@@ -5123,8 +5099,8 @@ void nicNanVendorEventHandler(struct ADAPTER *prAdapter,
 struct NanMatchInd g_rDiscMatchInd;
 uint8_t g_u2IndPubId;
 
-void nicNanEventDiscoveryResult(struct ADAPTER *prAdapter,
-	    uint8_t *pcuEvtBuf)
+void nicNanEventDiscoveryResult(IN struct ADAPTER *prAdapter,
+	    IN uint8_t *pcuEvtBuf)
 {
 	struct NAN_DISCOVERY_EVENT *prDiscEvt;
 
@@ -5150,18 +5126,13 @@ void nicNanEventDiscoveryResult(struct ADAPTER *prAdapter,
 		   NAN_MAX_SERVICE_SPECIFIC_INFO_LEN);
 	kalMemCopy(g_rDiscMatchInd.addr, prDiscEvt->aucNanAddress,
 		   MAC_ADDR_LEN);
-	g_rDiscMatchInd.sdf_match_filter_len =
-		prDiscEvt->ucSdf_match_filter_len;
-	kalMemCopy(g_rDiscMatchInd.sdf_match_filter,
-			prDiscEvt->aucSdf_match_filter,
-			NAN_FW_MAX_MATCH_FILTER_LEN);
 
 	kalIndicateNetlink2User(prAdapter->prGlueInfo, &g_rDiscMatchInd,
 				sizeof(struct NanMatchInd));
 }
 
 struct NanFollowupInd rFollowInd;
-void nicNanReceiveEvent(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
+void nicNanReceiveEvent(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf)
 {
 	struct NAN_FOLLOW_UP_EVENT *prDiscEvt;
 
@@ -5182,7 +5153,7 @@ void nicNanReceiveEvent(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
 				sizeof(struct NanFollowupInd));
 }
 
-void nicNanRepliedEvnt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
+void nicNanRepliedEvnt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf)
 {
 	struct NanPublishRepliedInd rRepliedInd;
 	struct NAN_REPLIED_EVENT *prRepliedEvt;
@@ -5197,8 +5168,8 @@ void nicNanRepliedEvnt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
 				sizeof(struct NanPublishRepliedInd));
 }
 
-void nicNanPublishTerminateEvt(struct ADAPTER *prAdapter,
-		   uint8_t *pcuEvtBuf)
+void nicNanPublishTerminateEvt(IN struct ADAPTER *prAdapter,
+		   IN uint8_t *pcuEvtBuf)
 {
 	struct NanPublishTerminatedInd rPubTerminatEvt;
 	struct NAN_PUBLISH_TERMINATE_EVENT *prPubTerEvt;
@@ -5211,8 +5182,8 @@ void nicNanPublishTerminateEvt(struct ADAPTER *prAdapter,
 				sizeof(struct NanPublishTerminatedInd));
 }
 
-void nicNanSubscribeTerminateEvt(struct ADAPTER *prAdapter,
-			    uint8_t *pcuEvtBuf)
+void nicNanSubscribeTerminateEvt(IN struct ADAPTER *prAdapter,
+			    IN uint8_t *pcuEvtBuf)
 {
 	struct NanSubscribeTerminatedInd rSubTerminatEvt;
 	struct NAN_SUBSCRIBE_TERMINATE_EVENT *pSubTerEvt;
@@ -5225,8 +5196,7 @@ void nicNanSubscribeTerminateEvt(struct ADAPTER *prAdapter,
 				sizeof(struct NanSubscribeTerminatedInd));
 }
 
-#if CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL
-void nicNanNdlFlowCtrlEvt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
+void nicNanNdlFlowCtrlEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf)
 {
 	struct NAN_EVT_NDL_FLOW_CTRL *prFlowCtrlEvt;
 	struct STA_RECORD *prStaRec;
@@ -5257,7 +5227,7 @@ void nicNanNdlFlowCtrlEvt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
 			continue;
 
 		rExpiryTime -= NAN_SEND_PKT_TIME_GUARD_TIME;
-		for (u4Idx = 0; u4Idx < NAN_MAX_SUPPORT_NDP_CXT_NUM; u4Idx++) {
+		for (u4Idx = 0; u4Idx < NAN_MAX_SUPPORT_NDP_NUM; u4Idx++) {
 			ucSTAIdx = nanSchedQueryStaRecIdx(prAdapter, u2SchId,
 							  u4Idx);
 			if (ucSTAIdx == STA_REC_INDEX_NOT_FOUND)
@@ -5278,89 +5248,13 @@ void nicNanNdlFlowCtrlEvt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
 	}
 }
 
-void nicNanNdlFlowCtrlEvtV2(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf)
-{
-	struct NAN_EVT_NDL_FLOW_CTRL_V2 *prFlowCtrlEvt;
-	struct STA_RECORD *prStaRec;
-	uint16_t u2SchId = 0;
-	uint32_t u4Idx;
-	uint32_t u4NanSendPacketGuardTime;
-	struct NAN_FLOW_CTRL *prNanFlowCtrlRecord;
-	OS_SYSTIME rCurrentTime;
-	OS_SYSTIME rExpiryTime;
-
-	KAL_SPIN_LOCK_DECLARATION();
-
-	u4NanSendPacketGuardTime = prAdapter->rWifiVar.u4NanSendPacketGuardTime;
-	prFlowCtrlEvt = (struct NAN_EVT_NDL_FLOW_CTRL_V2 *)pcuEvtBuf;
-
-	for (u2SchId = 0; u2SchId < NAN_MAX_CONN_CFG; u2SchId++) {
-		uint8_t ucSTAIdx;
-		uint16_t u4RemainingTime;
-
-		if (nanSchedPeerSchRecordIsValid(prAdapter, u2SchId) == FALSE)
-			continue;
-
-		prNanFlowCtrlRecord = nanSchedGetPeerSchRecFlowCtrl(prAdapter,
-								    u2SchId);
-		rCurrentTime = kalGetTimeTick();
-		u4RemainingTime = prFlowCtrlEvt->au4RemainingTime[u2SchId];
-		rExpiryTime = rCurrentTime + u4RemainingTime;
-
-		DBGLOG(NAN, INFO,
-		       "[NDL flow control] Sch:%u, Expiry:%u, Remain:%u, %sstayed %u for %u ms\n",
-		       u2SchId, rExpiryTime, u4RemainingTime,
-		       prNanFlowCtrlRecord[u2SchId].fgAllow ==
-				       !!u4RemainingTime ? "WARN " : "",
-		       prNanFlowCtrlRecord[u2SchId].fgAllow,
-		       prNanFlowCtrlRecord[u2SchId].u4Time ?
-			       rCurrentTime -
-				       prNanFlowCtrlRecord[u2SchId].u4Time : 0);
-		prNanFlowCtrlRecord[u2SchId].fgAllow = !!u4RemainingTime;
-		prNanFlowCtrlRecord[u2SchId].u4Time = rCurrentTime;
-
-		if (u4RemainingTime == 0)
-			continue;
-
-		rExpiryTime -= u4NanSendPacketGuardTime;
-		for (u4Idx = 0; u4Idx < NAN_MAX_SUPPORT_NDP_CXT_NUM; u4Idx++) {
-			ucSTAIdx = nanSchedQueryStaRecIdx(prAdapter, u2SchId,
-							  u4Idx);
-			if (ucSTAIdx == STA_REC_INDEX_NOT_FOUND)
-				continue;
-
-			KAL_ACQUIRE_SPIN_LOCK(prAdapter,
-				SPIN_LOCK_NAN_NDL_FLOW_CTRL);
-
-			prStaRec = &prAdapter->arStaRec[ucSTAIdx];
-			prStaRec->rNanExpiredSendTime = rExpiryTime;
-
-			if (prStaRec->fgNanSendTimeExpired) {
-				prStaRec->fgNanSendTimeExpired = FALSE;
-
-				DBGLOG(NAN, INFO, "Trigger NAN tx request\n");
-				/* NAN StaRec Start Tx */
-				qmSetStaRecTxAllowed(prAdapter,
-					prStaRec, TRUE);
-			}
-			KAL_RELEASE_SPIN_LOCK(prAdapter,
-					SPIN_LOCK_NAN_NDL_FLOW_CTRL);
-		}
-
-		kalSetEvent(prAdapter->prGlueInfo); /* Wakeup TX */
-	}
-}
-#endif
-
-void nicNanEventDispatcher(struct ADAPTER *prAdapter,
-		      struct WIFI_EVENT *prEvent)
+void nicNanEventDispatcher(IN struct ADAPTER *prAdapter,
+		      IN struct WIFI_EVENT *prEvent)
 {
 	ASSERT(prAdapter);
 	ASSERT(prEvent);
 
 	DBGLOG(INIT, WARN, "nicNanEventDispatcher\n");
-
-	kalNanHandlePendingCmd(prAdapter, (uint8_t *)prEvent);
 
 	if (prAdapter->fgIsNANfromHAL == FALSE) {
 		DBGLOG(INIT, WARN, "nicNanIOEventHandler\n");
@@ -5372,86 +5266,9 @@ void nicNanEventDispatcher(struct ADAPTER *prAdapter,
 		nicNanVendorEventHandler(prAdapter, prEvent);
 	}
 }
-#ifdef CFG_SUPPORT_UNIFIED_COMMAND
-void nicNanIOEventHandler(struct ADAPTER *prAdapter,
-		     struct WIFI_EVENT *prEvent)
-{
-	struct UNI_CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
-	uint32_t u4SubEvent;
 
-	ASSERT(prAdapter);
-
-	prTlvElement =
-	(struct UNI_CMD_EVENT_TLV_ELEMENT_T *)prEvent->aucBuffer;
-
-	u4SubEvent = prTlvElement->u2Tag;
-
-	DBGLOG(NAN, INFO, "%s, subEvent:%d\n", __func__, u4SubEvent);
-
-	switch (u4SubEvent) {
-	case UNI_EVENT_NAN_TAG_DISCOVERY_RESULT:
-		nicNanEventDiscoveryResult(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_FOLLOW_EVENT:
-		nicNanReceiveEvent(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_REPLIED_EVENT:
-		nicNanRepliedEvnt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_PUBLISH_TERMINATE_EVENT:
-		nicNanPublishTerminateEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_SUBSCRIBE_TERMINATE_EVENT:
-		nicNanSubscribeTerminateEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_MASTER_IND_ATTR:
-		nanDevMasterIndEvtHandler(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_CLUSTER_ID_UPDATE:
-		nanDevClusterIdEvtHandler(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_SCHEDULE_CONFIG:
-	case UNI_EVENT_NAN_TAG_ID_PEER_AVAILABILITY:
-	case UNI_EVENT_NAN_TAG_ID_PEER_CAPABILITY:
-	case UNI_EVENT_NAN_TAG_ID_CRB_HANDSHAKE_TOKEN:
-	case UNI_EVENT_NAN_TAG_ID_DEVICE_CAPABILITY:
-		nanSchedulerUniEventDispatch(prAdapter, u4SubEvent,
-					  prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_PEER_SEC_CONTEXT_INFO:
-		nanDiscUpdateSecContextInfoAttr(prAdapter,
-						prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_PEER_CIPHER_SUITE_INFO:
-		nanDiscUpdateCipherSuiteInfoAttr(prAdapter,
-						 prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_ID_DATA_NOTIFY:
-		nicNanEventSTATxCTL(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_FTM_DONE:
-		nanRangingFtmDoneEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_RANGING_BY_DISC:
-		nanRangingInvokedByDiscEvt(prAdapter, prTlvElement->aucbody);
-		break;
-#if CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL
-	case UNI_EVENT_NAN_TAG_NDL_FLOW_CTRL:
-		nicNanNdlFlowCtrlEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	case UNI_EVENT_NAN_TAG_NDL_FLOW_CTRL_V2:
-		nicNanNdlFlowCtrlEvtV2(prAdapter, prTlvElement->aucbody);
-		break;
-#endif
-	case UNI_EVENT_NAN_TAG_NDL_DISCONNECT:
-		nanDataEngingDisconnectEvt(prAdapter, prTlvElement->aucbody);
-		break;
-	}
-}
-
-#else
-void nicNanIOEventHandler(struct ADAPTER *prAdapter,
-		     struct WIFI_EVENT *prEvent)
+void nicNanIOEventHandler(IN struct ADAPTER *prAdapter,
+		     IN struct WIFI_EVENT *prEvent)
 {
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
@@ -5498,7 +5315,6 @@ void nicNanIOEventHandler(struct ADAPTER *prAdapter,
 	case NAN_EVENT_ID_PEER_AVAILABILITY:
 	case NAN_EVENT_ID_PEER_CAPABILITY:
 	case NAN_EVENT_ID_CRB_HANDSHAKE_TOKEN:
-	case NAN_EVENT_ID_DEVICE_CAPABILITY:
 		nanSchedulerEventDispatch(prAdapter, u4SubEvent,
 					  prTlvElement->aucbody);
 		break;
@@ -5523,17 +5339,11 @@ void nicNanIOEventHandler(struct ADAPTER *prAdapter,
 	case NAN_EVENT_NDL_FLOW_CTRL:
 		nicNanNdlFlowCtrlEvt(prAdapter, prTlvElement->aucbody);
 		break;
-	case NAN_EVENT_NDL_FLOW_CTRL_V2:
-		nicNanNdlFlowCtrlEvtV2(prAdapter, prTlvElement->aucbody);
-		break;
 #endif
 	case NAN_EVENT_NDL_DISCONNECT:
 		nanDataEngingDisconnectEvt(prAdapter, prTlvElement->aucbody);
-	case NAN_EVENT_DEVICE_INFO:
-		break;
 	}
 }
-#endif
 
 void nicNanGetCmdInfoQueryTestBuffer(
 	struct _TXM_CMD_EVENT_TEST_T **prCmdInfoQueryTestBuffer)
@@ -5542,8 +5352,8 @@ void nicNanGetCmdInfoQueryTestBuffer(
 		(struct _TXM_CMD_EVENT_TEST_T *)&grCmdInfoQueryTestBuffer;
 }
 
-void nicNanTestQueryInfoDone(struct ADAPTER *prAdapter,
-	    struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf)
+void nicNanTestQueryInfoDone(IN struct ADAPTER *prAdapter,
+	    IN struct CMD_INFO *prCmdInfo, IN uint8_t *pucEventBuf)
 {
 	struct GLUE_INFO *prGlueInfo;
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
@@ -5562,21 +5372,11 @@ void nicNanTestQueryInfoDone(struct ADAPTER *prAdapter,
 		prGlueInfo = prAdapter->prGlueInfo;
 		prTlvCommon = (struct _CMD_EVENT_TLV_COMMOM_T *)pucEventBuf;
 		prTlvElement = nicGetTargetTlvElement(1, prTlvCommon);
-		if (!prTlvElement) {
-			DBGLOG(REQ, ERROR,
-				"prTlvElement is null\n");
-			return;
-		}
 		prEventContent =
 			(struct _TXM_CMD_EVENT_TEST_T *)prTlvElement->aucbody;
 		prQueryInfoContent =
 			(struct _TXM_CMD_EVENT_TEST_T *)
 				prCmdInfo->pvInformationBuffer;
-		if (!prEventContent || !prQueryInfoContent) {
-			DBGLOG(REQ, ERROR,
-				"prEventContent or prQueryInfoContent is null\n");
-			return;
-		}
 		prQueryInfoContent->u4TestValue0 = prEventContent->u4TestValue0;
 		prQueryInfoContent->u4TestValue1 = prEventContent->u4TestValue1;
 		prQueryInfoContent->ucTestValue2 = prEventContent->ucTestValue2;

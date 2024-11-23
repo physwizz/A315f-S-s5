@@ -2286,11 +2286,9 @@ int mtk_p2p_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
 
 		i4Rslt = 0;
 	} while (FALSE);
-	if (!prGlueInfo)
-		return -EINVAL;
+
 	/* Restore SET_INDOOR_CHANNEL to default when disable hostapd */
 	prGlueInfo->rRegInfo.eRegChannelListMap = REG_CH_MAP_COUNTRY_CODE;
-
 	country[0] = (prGlueInfo->prAdapter->rWifiVar.u2CountryCode
 			& 0xff00) >> 8;
 	country[1] = prGlueInfo->prAdapter->rWifiVar.u2CountryCode
@@ -2859,8 +2857,6 @@ int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy,
 	uint8_t ucBssIdx = 0;
 	uint32_t waitRet = 0;
 	struct BSS_INFO *prBssInfo = NULL;
-	struct STA_RECORD *prCurrStaRec =
-		(struct STA_RECORD *) NULL;
 
 	do {
 		if ((wiphy == NULL) || (dev == NULL))
@@ -2904,10 +2900,6 @@ int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy,
 			prGlueInfo->prAdapter,
 			ucBssIdx);
 
-		prCurrStaRec = bssGetClientByMac(prGlueInfo->prAdapter,
-			prBssInfo,
-			prDisconnectMsg->aucTargetID);
-
 		mboxSendMsg(prGlueInfo->prAdapter,
 			MBOX_ID_0,
 			(struct MSG_HDR *) prDisconnectMsg,
@@ -2916,13 +2908,10 @@ int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy,
 		/* if encrypted deauth frame
 		 * is in process, pending remove key
 		*/
-		if (prBssInfo && prCurrStaRec &&
+		if (prBssInfo &&
 			IS_BSS_APGO(prBssInfo) &&
 			(prBssInfo->u4RsnSelectedAKMSuite ==
 			RSN_AKM_SUITE_SAE)) {
-			reinit_completion(&prBssInfo->rDeauthComp);
-			DBGLOG(P2P, TRACE,
-				"Start deauth wait\n");
 			waitRet = wait_for_completion_timeout(
 				&prBssInfo->rDeauthComp,
 				MSEC_TO_JIFFIES(1000));
@@ -4427,12 +4416,10 @@ int mtk_p2p_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy,
 
 	DBGLOG(P2P, TRACE, "--> %s()\n", __func__);
 
-	if (len < sizeof(struct NL80211_DRIVER_SW_CMD_PARAMS))
-		rstatus = WLAN_STATUS_INVALID_LENGTH;
-	else if (!data)
-		rstatus = WLAN_STATUS_INVALID_DATA;
-	else {
+	if (data && len)
 		prParams = (struct NL80211_DRIVER_SW_CMD_PARAMS *) data;
+
+	if (prParams) {
 		if (prParams->set == 1) {
 			rstatus = kalIoctl(prGlueInfo,
 				(PFN_OID_HANDLER_FUNC) wlanoidSetSwCtrlWrite,

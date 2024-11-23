@@ -427,12 +427,6 @@ void wnmSendBTMResponseFrame(IN struct ADAPTER *adapter,
 	}
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(adapter, staRec->ucBssIndex);
-	if (prBssInfo == NULL) {
-		DBGLOG(WNM, ERROR, "BssInfo %d is NULL!\n",
-			staRec->ucBssIndex);
-		return;
-	}
-
 	prBtmParam = aisGetBTMParam(adapter, staRec->ucBssIndex);
 	prBtmParam->ucStatusCode = status;
 
@@ -535,12 +529,6 @@ void wnmSendBTMQueryFrame(IN struct ADAPTER *prAdapter,
 	char log[256] = {0};
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
-	if (prBssInfo == NULL) {
-		DBGLOG(WNM, ERROR, "BssInfo %d is NULL!\n",
-			prStaRec->ucBssIndex);
-		return;
-	}
-
 	prBtmParam = aisGetBTMParam(prAdapter, prStaRec->ucBssIndex);
 	prBtmParam->ucQueryDialogToken = ucToken++;
 	prBtmParam->fgWaitBtmRequest = TRUE;

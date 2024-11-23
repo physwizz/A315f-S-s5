@@ -6,6 +6,9 @@
 
 /*
  * Log: gl_vendor_nan.h
+ *
+ *
+ *
  */
 
 /*******************************************************************************
@@ -54,7 +57,7 @@
  *******************************************************************************
  */
 #define PACKED __packed
-/* 8-byte control message header used by NAN */
+/* 8-byte control message header used by NAN*/
 struct _NanMsgHeader {
 	u16 msgVersion : 4;
 	u16 msgId : 12;
@@ -235,13 +238,6 @@ struct NanEventIndMsg {
 	u8 ptlv[];
 } PACKED;
 
-/* Disable Ind */
-struct NanDisableIndMsg {
-	struct _NanMsgHeader fwHeader;
-	u16 reason;
-	u16 reserved;
-} PACKED;
-
 /* NAN Subscribe Match Ind */
 struct _NanMatchIndParams  {
 	u32 matchHandle;
@@ -256,17 +252,6 @@ struct NanMatchIndMsg {
 	u8 ptlv[];
 } PACKED;
 
-/* NAN Match Expired Ind */
-struct _NanmatchExpiredIndParams  {
-	u32 matchHandle;
-} PACKED;
-
-struct NanMatchExpiredIndMsg {
-	struct _NanMsgHeader fwHeader;
-	struct _NanmatchExpiredIndParams matchExpiredIndParams;
-} PACKED;
-
-
 /* NAN Ranging Configuration params */
 struct _NanFWGeoFenceDescriptor {
 	u32 inner_threshold;
@@ -280,11 +265,11 @@ struct NanFWRangeConfigParams {
 	struct _NanFWGeoFenceDescriptor geo_fence_threshold;
 } PACKED;
 
-/* 2 word representation of MAC addr */
+/** 2 word representation of MAC addr */
 struct _fw_mac_addr {
-	/* upper 4 bytes of  MAC address */
+	/** upper 4 bytes of  MAC address */
 	u32 mac_addr31to0;
-	/* lower 2 bytes of  MAC address */
+	/** lower 2 bytes of  MAC address */
 	u32 mac_addr47to32;
 };
 
@@ -298,15 +283,20 @@ struct NanFWRangeReqMsg {
 } PACKED;
 
 struct NanDebugParams {
-    /* To indicate the debug command type. */
+    /*
+     * To indicate the debug command type.
+     */
 	u32 cmd;
-    /* To hold the data for the above command
+    /*
+     * To hold the data for the above command
      * type.
      */
 	u8 debug_cmd_data[NAN_MAX_DEBUG_MESSAGE_DATA_LEN];
 } PACKED;
 
-/* Service Discovery Extended Attribute params Format to HAL */
+extern const struct nla_policy mtk_wlan_vendor_nan_policy[NL80211_ATTR_MAX + 1];
+
+/* Service Discovery Extended Attribute params Format to HAL*/
 struct NanFWSdeaCtrlParams {
 	u32 fsd_required : 1;
 	u32 fsd_with_gas : 1;
@@ -366,8 +356,9 @@ enum NanMsgId {
 	NAN_MSG_ID_TESTMODE_RSP = 1026
 };
 
-/* Various TLV Type ID sent as part of NAN Stats Response
- * or NAN TCA Indication
+/*
+ *  Various TLV Type ID sent as part of NAN Stats Response
+ *  or NAN TCA Indication
  */
 enum NanTlvType {
 	NAN_TLV_TYPE_FIRST = 0,
@@ -495,7 +486,8 @@ enum NanTlvType {
 	NAN_TLV_TYPE_LAST = 65535
 };
 
-/* Definitions of debug subcommand type for the
+/*
+ * Definitions of debug subcommand type for the
  * generic debug command.
  * This debug command carries any one command type
  * followed by corresponding command data content
@@ -565,7 +557,7 @@ enum NanDebugModeCmd {
 	NAN_TEST_MODE_CMD_ENABLE_NDP = 16,
 };
 
-/* NAN Resp status type */
+/* NAN Resp status type*/
 enum NanInternalStatusType {
 	/* NAN Protocol Response Codes */
 	NAN_I_STATUS_SUCCESS = 0,
@@ -742,13 +734,12 @@ enum NanInternalStatusType {
 #define GET_SDEA_RANGE_LIMIT_PRESENT(flags)                                    \
 	((flags & SDEA_CTRL_PARMS_RANGE_LIMIT_PRESENT) >> 8) /* fgRangeLimit */
 
-/* Get flags
- * BIT0 - Disable publish termination indication.
- * BIT1 - Disable match expired indication.
- * BIT2 - Disable followUp indication received (OTA).
- * BIT3 - Disable publishReplied indication.
- */
-#define GET_PUB_REPLY_IND_FLAG(flags) (!(flags & PUB_REPLY_IND_FLAG) << 3)
+/* Get flags */
+/*BIT0 - Disable publish termination indication.*/
+/*BIT1 - Disable match expired indication.*/
+/*BIT2 - Disable followUp indication received (OTA).*/
+/*BIT3 - Disable publishReplied indication.*/
+#define GET_PUB_REPLY_IND_FLAG(flags) ((flags & PUB_REPLY_IND_FLAG) << 3)
 #define GET_PUB_FOLLOWUP_RX_IND_DISABLE_FLAG(flags)                            \
 	(((flags & PUB_FOLLOWUP_RX_IND_DISABLE_FLAG) >> 26) << 2)
 #define GET_PUB_MATCH_EXPIRED_IND_DISABLE_FLAG(flags)                          \
@@ -812,32 +803,21 @@ nanMapNan20RangingReqParams(u32 *pIndata,
 			    struct NanRangeResponseCfg *prNanRangeRspCfgParms);
 int mtk_cfg80211_vendor_nan(struct wiphy *wiphy, struct wireless_dev *wdev,
 			    const void *data, int data_len);
-int mtk_cfg80211_vendor_event_nan_event_indication(struct ADAPTER *prAdapter,
+int mtk_cfg80211_vendor_event_nan_event_indication(IN struct ADAPTER *prAdapter,
+						   uint8_t ucEventType,
 						   uint8_t *pcuEvtBuf);
-int mtk_cfg80211_vendor_event_nan_schedule_config(
-	struct ADAPTER *prAdapter,
-	uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_replied_indication(struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_replied_indication(IN struct ADAPTER *prAdapter,
 						 uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_publish_terminate(struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_publish_terminate(IN struct ADAPTER *prAdapter,
 						uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_subscribe_terminate(struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_subscribe_terminate(IN struct ADAPTER *prAdapter,
 						  uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_followup_indication(struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_followup_indication(IN struct ADAPTER *prAdapter,
 						  uint8_t *pcuEvtBuf);
-int
-mtk_cfg80211_vendor_event_nan_seldflwup_indication(struct ADAPTER *prAdapter,
-						  uint8_t *pcuEvtBuf);
-int mtk_cfg80211_vendor_event_nan_match_indication(struct ADAPTER *prAdapter,
+int mtk_cfg80211_vendor_event_nan_match_indication(IN struct ADAPTER *prAdapter,
 						   uint8_t *pcuEvtBuf);
-int
-mtk_cfg80211_vendor_event_nan_match_expire(struct ADAPTER *prAdapter,
-					       uint8_t *pcuEvtBuf);
-int
-mtk_cfg80211_vendor_event_nan_disable_indication(struct ADAPTER *prAdapter,
-						uint8_t *pcuEvtBuf);
 #endif

@@ -401,9 +401,6 @@ u_int8_t kalDevPortRead(IN struct GLUE_INFO *prGlueInfo,
 		goto skip;
 	}
 
-	NIC_DUMP_RXDMAD_HEADER(prAdapter, "Dump RXDMAD:\n");
-	NIC_DUMP_RXDMAD(prAdapter, (uint8_t *)pRxD, sizeof(struct RXD_STRUCT));
-
 	prDmaBuf = &pRxCell->DmaBuf;
 	if (prMemOps->copyEvent &&
 	    !prMemOps->copyEvent(prHifInfo, pRxCell, pRxD,
@@ -457,7 +454,6 @@ kalDevPortWrite(IN struct GLUE_INFO *prGlueInfo,
 	struct RTMP_DMACB *pTxCell;
 	struct TXD_STRUCT *pTxD;
 	void *pucDst = NULL;
-	struct ADAPTER *prAdapter;
 
 	ASSERT(prGlueInfo);
 	ASSERT(pucBuf);
@@ -466,7 +462,6 @@ kalDevPortWrite(IN struct GLUE_INFO *prGlueInfo,
 	prHifInfo = &prGlueInfo->rHifInfo;
 	prMemOps = &prHifInfo->rMemOps;
 	prTxRing = &prHifInfo->TxRing[u2Port];
-	prAdapter = prGlueInfo->prAdapter;
 
 	if (prMemOps->allocRuntimeMem)
 		pucDst = prMemOps->allocRuntimeMem(u4Len);
@@ -508,13 +503,6 @@ kalDevPortWrite(IN struct GLUE_INFO *prGlueInfo,
 	pTxD->SDPtr1 = 0;
 	pTxD->Burst = 0;
 	pTxD->DMADONE = 0;
-
-	NIC_DUMP_TXDMAD_HEADER(prAdapter, "Dump CMD TXDMAD:\n");
-	NIC_DUMP_TXDMAD(prAdapter,
-			(uint8_t *)pTxD, sizeof(struct TXD_STRUCT));
-
-	NIC_DUMP_TXD_HEADER(prAdapter, "Dump CMD TXD:\n");
-	NIC_DUMP_TXD(prAdapter, (uint8_t *)pucBuf, u4Len);
 
 	/* Increase TX_CTX_IDX, but write to register later. */
 	INC_RING_INDEX(prTxRing->TxCpuIdx, TX_RING_SIZE);
@@ -973,9 +961,6 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 #if CFG_TCP_IP_CHKSUM_OFFLOAD
 	prSwRfb->u4TcpUdpIpCksStatus = pRxD->RXINFO;
 #endif /* CFG_TCP_IP_CHKSUM_OFFLOAD */
-
-	NIC_DUMP_RXDMAD_HEADER(prAdapter, "Dump RXDMAD:\n");
-	NIC_DUMP_RXDMAD(prAdapter, (uint8_t *)pRxD, sizeof(struct RXD_STRUCT));
 
 	pRxD->SDPtr0 = (uint64_t)prDmaBuf->AllocPa & DMA_LOWER_32BITS_MASK;
 #ifdef CONFIG_PHYS_ADDR_T_64BIT

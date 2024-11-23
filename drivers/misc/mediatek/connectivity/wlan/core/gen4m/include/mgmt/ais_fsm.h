@@ -676,17 +676,6 @@ void aisSendNeighborRequest(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
 /* end Support 11K */
 
-/*----------------------------------------------------------------------------*/
-/* CSA Handline                                                               */
-/*----------------------------------------------------------------------------*/
-void aisUpdateParamsForCSA(struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo);
-
-void aisReqJoinChPrivilegeForCSA(struct ADAPTER *prAdapter,
-	struct AIS_FSM_INFO *prAisFsmInfo,
-	struct BSS_INFO *prBss,
-	uint8_t *ucChTokenId);
-
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************

@@ -71,8 +71,6 @@
 #define BUILD_QA_DBG 0
 #endif
 
-#define DBG_DISABLE_ALL_LOG             1
-
 /*******************************************************************************
  *                    E X T E R N A L   R E F E R E N C E S
  *******************************************************************************
@@ -522,7 +520,6 @@ struct CHIP_DBG_OPS {
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 	int (*get_rx_rate_info)(
 		struct ADAPTER *prAdapter,
-		uint8_t ucBssIdx,
 		uint32_t *pu4Rate,
 		uint32_t *pu4Nss,
 		uint32_t *pu4RxMode,
@@ -645,7 +642,13 @@ enum WAKE_DATA_TYPE {
  *    #define DEBUGFUNC(_Func) static const char __FUNCTION__[] = _Func;
  * #endif
  */
-#if DBG_DISABLE_ALL_LOG
+ 
+/* Disable logging, Rissu 2024/22/11 */
+#ifdef CONFIG_MTK_CONNECTIVITY_DISABLE_LOG
+#define CFG_DISABLE_LOG	1
+#endif
+
+#if CFG_DISABLE_LOG
 #define DBGLOG(_Mod, _Clz, _Fmt, ...)
 #define DBGLOG_LIMITED(_Mod, _Clz, _Fmt, ...)
 #define DBGFWLOG(_Mod, _Clz, _Fmt, ...)
@@ -710,7 +713,8 @@ enum WAKE_DATA_TYPE {
 			dumpMemory32((uint32_t *)(_Adr), (uint32_t)(_Len)); \
 		} \
 	}
-#endif
+#endif /* CFG_DISABLE_LOG */
+
 #define DISP_STRING(_str)       _str
 #undef ASSERT
 #undef ASSERT_REPORT
@@ -867,7 +871,6 @@ int32_t halShowStatInfo(struct ADAPTER *prAdapter,
 			u_int8_t fgResetCnt, uint32_t u4StatGroup);
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac_get_rx_rate_info(struct ADAPTER *prAdapter,
-	uint8_t ucBssIdx,
 	uint32_t *pu4Rate,
 	uint32_t *pu4Nss,
 	uint32_t *pu4RxMode,
@@ -958,7 +961,6 @@ void connac2x_DumpCrRange(
 #ifdef CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac2x_get_rx_rate_info(
 	struct ADAPTER *prAdapter,
-	uint8_t ucBssIdx,
 	uint32_t *pu4Rate,
 	uint32_t *pu4Nss,
 	uint32_t *pu4RxMode,

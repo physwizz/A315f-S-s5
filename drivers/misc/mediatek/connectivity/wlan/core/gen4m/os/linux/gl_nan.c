@@ -4,24 +4,25 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 /*
- * Id: @(#) gl_nan.c@@
- */
-/*
- *    \brief  Main routines of Linux driver interface for Wi-Fi Aware
- *
- *    This file contains the main routines of Linux driver for MediaTek Inc.
- *    802.11 Wireless LAN Adapters.
- */
+** Id: @(#) gl_nan.c@@
+*/
+
+/*! \file   gl_nan.c
+*    \brief  Main routines of Linux driver interface for Wi-Fi NAN
+*
+*    This file contains the main routines of Linux driver for MediaTek Inc.
+*    802.11 Wireless LAN Adapters.
+*/
 
 /*******************************************************************************
- *                         C O M P I L E R   F L A G S
- *******************************************************************************
- */
+*                         C O M P I L E R   F L A G S
+********************************************************************************
+*/
 
 /*******************************************************************************
- *                    E X T E R N A L   R E F E R E N C E S
- *******************************************************************************
- */
+*                    E X T E R N A L   R E F E R E N C E S
+********************************************************************************
+*/
 
 #include <linux/poll.h>
 
@@ -38,13 +39,11 @@
 #include "nan/nan_sec.h"
 
 /*******************************************************************************
- *                              C O N S T A N T S
- *******************************************************************************
- */
+*                              C O N S T A N T S
+********************************************************************************
+*/
 
 #define NAN_INF_NAME "nan%d"
-
-#define NAN_INF_NAME2 "aware_data%d"
 
 #if 0
 #define RUNNING_P2P_MODE 0
@@ -53,24 +52,24 @@
 #endif
 
 /*******************************************************************************
- *                             D A T A   T Y P E S
- *******************************************************************************
- */
+*                             D A T A   T Y P E S
+********************************************************************************
+*/
 
 /*******************************************************************************
- *                            P U B L I C   D A T A
- *******************************************************************************
- */
+*                            P U B L I C   D A T A
+********************************************************************************
+*/
 
 /*******************************************************************************
- *                           P R I V A T E   D A T A
- *******************************************************************************
- */
+*                           P R I V A T E   D A T A
+********************************************************************************
+*/
 
 struct wireless_dev *g_aprNanRoleWdev[NAN_BSS_INDEX_NUM];
 struct _GL_NAN_INFO_T g_aprNanMultiDev[NAN_BSS_INDEX_NUM];
 
-static unsigned char *nifname = NAN_INF_NAME2;
+static unsigned char *nifname = NAN_INF_NAME;
 
 #if CFG_ENABLE_WIFI_DIRECT_CFG_80211
 #endif
@@ -100,107 +99,65 @@ const struct iw_handler_def mtk_p2p_wext_handler_def = {
 #endif
 
 /*******************************************************************************
- *                                 M A C R O S
- *******************************************************************************
- */
+*                                 M A C R O S
+********************************************************************************
+*/
 
 /*******************************************************************************
- *                   F U N C T I O N   D E C L A R A T I O N S
- *******************************************************************************
- */
+*                   F U N C T I O N   D E C L A R A T I O N S
+********************************************************************************
+*/
 
 /* Net Device Hooks */
-static int nanOpen(struct net_device *prDev);
+static int nanOpen(IN struct net_device *prDev);
 
-static int nanStop(struct net_device *prDev);
+static int nanStop(IN struct net_device *prDev);
 
-static struct net_device_stats *nanGetStats(struct net_device *prDev);
+static struct net_device_stats *nanGetStats(IN struct net_device *prDev);
 
-static void nanSetMulticastList(struct net_device *prDev);
+static void nanSetMulticastList(IN struct net_device *prDev);
 
-static netdev_tx_t nanHardStartXmit(struct sk_buff *prSkb,
-				    struct net_device *prDev);
+static netdev_tx_t nanHardStartXmit(IN struct sk_buff *prSkb,
+				    IN struct net_device *prDev);
 
 static int nanDoIOCTL(struct net_device *prDev, struct ifreq *prIFReq,
 		      int i4Cmd);
 
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
-static int nanDoPrivIOCTL(struct net_device *prDev, struct ifreq *prIfReq,
-		void __user *prData, int i4Cmd);
-#endif
-
-#if CFG_SUPPORT_RX_GRO
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief A method of callback function for napi struct
- *
- * It just return false because driver indicate Rx packet directly.
- *
- * \param[in] napi      Pointer to struct napi_struct.
- * \param[in] budget    Polling time interval.
- *
- * \return false
- */
-/*----------------------------------------------------------------------------*/
-static int nan_napi_poll(struct napi_struct *napi, int budget)
-{
-	return 0;
-}
-#endif
-
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief A function for prDev->init
- *
- * \param[in] prDev      Pointer to struct net_device.
- *
- * \retval 0         The execution of wlanInit succeeds.
- * \retval -ENXIO    No such device.
- */
+* \brief A function for prDev->init
+*
+* \param[in] prDev      Pointer to struct net_device.
+*
+* \retval 0         The execution of wlanInit succeeds.
+* \retval -ENXIO    No such device.
+*/
 /*----------------------------------------------------------------------------*/
 static int
-nanInit(struct net_device *prDev)
-{
-#if CFG_SUPPORT_RX_GRO
-	struct NETDEV_PRIVATE_GLUE_INFO *prNetDevPrivate;
-#endif
-
+nanInit(struct net_device *prDev) {
 	if (!prDev)
 		return -ENXIO;
 
-#if CFG_SUPPORT_RX_GRO
-	prNetDevPrivate = (struct NETDEV_PRIVATE_GLUE_INFO *)netdev_priv(prDev);
-	prDev->features |= NETIF_F_GRO;
-	prDev->hw_features |= NETIF_F_GRO;
-	spin_lock_init(&prNetDevPrivate->napi_spinlock);
-	prNetDevPrivate->napi.dev = prDev;
-	netif_napi_add(prNetDevPrivate->napi.dev, &prNetDevPrivate->napi,
-		       nan_napi_poll, 64);
-	DBGLOG(INIT, TRACE, "GRO interface added successfully:%p\n", prDev);
-#endif
 	return 0; /* success */
 }
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief A function for prDev->uninit
- *
- * \param[in] prDev      Pointer to struct net_device.
- *
- * \return (none)
- */
+* \brief A function for prDev->uninit
+*
+* \param[in] prDev      Pointer to struct net_device.
+*
+* \return (none)
+*/
 /*----------------------------------------------------------------------------*/
 static void
-nanUninit(struct net_device *prDev) {}
+nanUninit(IN struct net_device *prDev) {}
 const struct net_device_ops nan_netdev_ops = {
 	.ndo_open = nanOpen,
 	.ndo_stop = nanStop,
 	.ndo_set_rx_mode = nanSetMulticastList,
 	.ndo_get_stats = nanGetStats,
 	.ndo_do_ioctl = nanDoIOCTL,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
-	.ndo_siocdevprivate = nanDoPrivIOCTL,
-#endif
 	.ndo_start_xmit = nanHardStartXmit,
 	.ndo_select_queue = wlanSelectQueue,
 	.ndo_init = nanInit,
@@ -208,22 +165,22 @@ const struct net_device_ops nan_netdev_ops = {
 };
 
 /*******************************************************************************
- *                              F U N C T I O N S
- *******************************************************************************
- */
+*                              F U N C T I O N S
+********************************************************************************
+*/
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief Allocate memory for NAN_INFO,
- *
- * \param[in] prGlueInfo      Pointer to glue info
- *
- * \return   TRUE
- *           FALSE
- */
+* \brief Allocate memory for NAN_INFO,
+*
+* \param[in] prGlueInfo      Pointer to glue info
+*
+* \return   TRUE
+*           FALSE
+*/
 /*----------------------------------------------------------------------------*/
 unsigned char
-nanAllocInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx)
+nanAllocInfo(IN struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx)
 {
 	struct ADAPTER *prAdapter = NULL;
 	struct WIFI_VAR *prWifiVar = NULL;
@@ -248,7 +205,7 @@ nanAllocInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx)
 
 
 	if (prGlueInfo->aprNANDevInfo[ucRoleIdx] == NULL) {
-		/* alloc memory for NANDEV info */
+		/*alloc memory for NANDEV info */
 		prGlueInfo->aprNANDevInfo[ucRoleIdx] = kalMemAlloc(
 			sizeof(struct _GL_NAN_INFO_T), VIR_MEM_TYPE);
 		if (prGlueInfo->aprNANDevInfo[ucRoleIdx]) {
@@ -290,7 +247,7 @@ err_alloc:
 	}
 
 	if (prGlueInfo->aprNANDevInfo[ucRoleIdx]) {
-		kalMemFree(prGlueInfo->aprNANDevInfo[ucRoleIdx], VIR_MEM_TYPE,
+		kalMemFree(prGlueInfo->aprNANDevInfo, VIR_MEM_TYPE,
 		   sizeof(struct _GL_NAN_INFO_T));
 
 		prGlueInfo->aprNANDevInfo[ucRoleIdx] = NULL;
@@ -301,55 +258,40 @@ err_alloc:
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief Free memory for NAN_INFO,
- *
- * \param[in] prGlueInfo      Pointer to glue info
- *	[in] ucIdx	     The BSS with the idx will be freed.
- *			     "ucIdx == 0xff" will free all BSSs.
- *			     Only has meaning for "CFG_ENABLE_UNIFY_WIPHY == 1"
- *
- * \return   TRUE
- *           FALSE
- */
+* \brief Free memory for NAN_INFO,
+*
+* \param[in] prGlueInfo      Pointer to glue info
+*	[in] ucIdx	     The BSS with the idx will be freed.
+*			     "ucIdx == 0xff" will free all BSSs.
+*			     Only has meaning for "CFG_ENABLE_UNIFY_WIPHY == 1"
+*
+* \return   TRUE
+*           FALSE
+*/
 /*----------------------------------------------------------------------------*/
 unsigned char
 nanFreeInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx)
 {
-	struct ADAPTER *prAdapter;
-	struct WIFI_VAR *prWifiVar = NULL;
-	uint8_t ucIdx = 0;
+	struct ADAPTER *prAdapter = prGlueInfo->prAdapter;
 
 	if (!prGlueInfo) {
 		DBGLOG(NAN, ERROR, "prGlueInfo error\n");
 		return FALSE;
 	}
-
-	prAdapter = prGlueInfo->prAdapter;
-	prWifiVar = &(prAdapter->rWifiVar);
-
 	if (!prAdapter) {
 		DBGLOG(NAN, ERROR, "prAdapter error!\n");
 		return FALSE;
 	}
 
-	if (!prWifiVar) {
-		DBGLOG(NAN, ERROR, "prWifiVar error!\n");
-		return FALSE;
-	}
-
 	if (prGlueInfo->aprNANDevInfo[ucRoleIdx] != NULL) {
+		kalMemFree(prGlueInfo->prAdapter->rWifiVar
+				   .aprNanSpecificBssInfo[ucRoleIdx],
+			   VIR_MEM_TYPE, sizeof(_NAN_SPECIFIC_BSS_INFO_T));
+		prGlueInfo->prAdapter->rWifiVar
+			.aprNanSpecificBssInfo[ucRoleIdx] = NULL;
 		kalMemFree(prGlueInfo->aprNANDevInfo[ucRoleIdx], VIR_MEM_TYPE,
 			   sizeof(struct _GL_NAN_INFO_T *));
 		prGlueInfo->aprNANDevInfo[ucRoleIdx] = NULL;
-	}
-
-	for (ucIdx = 0; ucIdx < NAN_BSS_INDEX_NUM; ucIdx++) {
-		if (prWifiVar->aprNanSpecificBssInfo[ucIdx]) {
-			kalMemFree(prWifiVar->aprNanSpecificBssInfo[ucIdx],
-				VIR_MEM_TYPE, sizeof(_NAN_SPECIFIC_BSS_INFO_T));
-
-			prWifiVar->aprNanSpecificBssInfo[ucIdx] = NULL;
-		}
 	}
 
 	return TRUE;
@@ -360,9 +302,9 @@ nanNetRegister(struct GLUE_INFO *prGlueInfo,
 	    unsigned char fgIsRtnlLockAcquired)
 {
 	unsigned char fgDoRegister = FALSE;
+	unsigned char fgRollbackRtnlLock = FALSE;
 	unsigned char ret;
 	enum NAN_BSS_ROLE_INDEX eRole = NAN_BSS_INDEX_BAND0;
-	int32_t i4RetReg = 0;
 
 	GLUE_SPIN_LOCK_DECLARATION();
 
@@ -387,6 +329,11 @@ nanNetRegister(struct GLUE_INFO *prGlueInfo,
 	if (!fgDoRegister)
 		return TRUE;
 
+	if (fgIsRtnlLockAcquired && rtnl_is_locked()) {
+		fgRollbackRtnlLock = TRUE;
+		rtnl_unlock();
+	}
+
 	ret = TRUE;
 	/* net device initialize */
 	netif_carrier_off(
@@ -394,21 +341,10 @@ nanNetRegister(struct GLUE_INFO *prGlueInfo,
 	netif_tx_stop_all_queues(
 		prGlueInfo->aprNANDevInfo[eRole]->prDevHandler);
 
-	if (fgIsRtnlLockAcquired) {
-#if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
-		i4RetReg = cfg80211_register_netdevice(
-		    prGlueInfo->aprNANDevInfo[eRole]->prDevHandler);
-#else
-		i4RetReg = register_netdevice(
-		    prGlueInfo->aprNANDevInfo[eRole]->prDevHandler);
-#endif
-	} else {
-		i4RetReg = register_netdev(
-		    prGlueInfo->aprNANDevInfo[eRole]->prDevHandler);
-	}
-
 	/* register for net device */
-	if (i4RetReg < 0) {
+	if (register_netdev(
+		    prGlueInfo->aprNANDevInfo[eRole]->prDevHandler) <
+	    0) {
 		DBGLOG(INIT, WARN,
 		       "unable to register netdevice for nan\n");
 		/* trunk doesn't do free_netdev here */
@@ -421,23 +357,21 @@ nanNetRegister(struct GLUE_INFO *prGlueInfo,
 			ENUM_NET_REG_STATE_REGISTERED;
 
 #if CFG_SUPPORT_NAN_CARRIER_ON_INIT
-		if (!fgIsRtnlLockAcquired)
-			rtnl_lock();
+		rtnl_lock();
 		dev_change_flags(
 			prGlueInfo->aprNANDevInfo[eRole]->prDevHandler,
 			prGlueInfo->aprNANDevInfo[eRole]
 					->prDevHandler->flags |
-				IFF_UP
-#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-				, NULL
-#endif
-				);
-		if (!fgIsRtnlLockAcquired)
-			rtnl_unlock();
+				IFF_UP);
+		rtnl_unlock();
+
 		netif_carrier_on(
 			prGlueInfo->aprNANDevInfo[eRole]->prDevHandler);
 #endif
 	}
+
+	if (fgRollbackRtnlLock)
+		rtnl_lock();
 
 	return ret;
 }
@@ -447,19 +381,19 @@ nanNetUnregister(struct GLUE_INFO *prGlueInfo,
 	    unsigned char fgIsRtnlLockAcquired)
 {
 	unsigned char fgDoUnregister = FALSE;
+	unsigned char fgRollbackRtnlLock = FALSE;
 	struct ADAPTER *prAdapter = NULL;
 	struct _GL_NAN_INFO_T *prNANInfo = NULL;
 	uint8_t ucIdx = NAN_BSS_INDEX_BAND0;
 
 	GLUE_SPIN_LOCK_DECLARATION();
 
+	prAdapter = prGlueInfo->prAdapter;
+
 	if (!prGlueInfo) {
 		DBGLOG(NAN, ERROR, "prGlueInfo error\n");
 		return FALSE;
 	}
-
-	prAdapter = prGlueInfo->prAdapter;
-
 	if (!prAdapter) {
 		DBGLOG(NAN, ERROR, "prAdapter error\n");
 		return FALSE;
@@ -474,6 +408,9 @@ nanNetUnregister(struct GLUE_INFO *prGlueInfo,
 
 	if (!fgDoUnregister)
 		return TRUE;
+
+	if (fgIsRtnlLockAcquired && rtnl_is_locked())
+		fgRollbackRtnlLock = TRUE;
 
 	prNANInfo = prGlueInfo->aprNANDevInfo[ucIdx];
 	if (prNANInfo == NULL)
@@ -499,16 +436,13 @@ nanNetUnregister(struct GLUE_INFO *prGlueInfo,
 
 	netif_tx_stop_all_queues(prNANInfo->prDevHandler);
 
-	if (fgIsRtnlLockAcquired) {
-#if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
-		cfg80211_unregister_netdevice(prNANInfo->prDevHandler);
-#else
-		unregister_netdevice(prNANInfo->prDevHandler);
-#endif
-	} else
-		unregister_netdev(prNANInfo->prDevHandler);
+	if (fgRollbackRtnlLock)
+		rtnl_unlock();
 
+	unregister_netdev(prNANInfo->prDevHandler);
 	DBGLOG(INIT, INFO, "unregister nandev\n");
+	if (fgRollbackRtnlLock)
+		rtnl_lock();
 
 	prGlueInfo->prAdapter->rNanNetRegState =
 		ENUM_NET_REG_STATE_UNREGISTERED;
@@ -518,16 +452,16 @@ nanNetUnregister(struct GLUE_INFO *prGlueInfo,
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief Setup the NAN device information
- *
- * \param[in] prGlueInfo      Pointer to glue info
- *       [in] prNANWdev       Pointer to the wireless device
- *       [in] prNANDev        Pointer to the net device
- *       [in] u4Idx           The nan Role index
- *
- * \return    0	Success
- *           -1	Failure
- */
+* \brief Setup the NAN device information
+*
+* \param[in] prGlueInfo      Pointer to glue info
+*       [in] prNANWdev       Pointer to the wireless device
+*       [in] prNANDev        Pointer to the net device
+*       [in] u4Idx           The nan Role index
+*
+* \return    0	Success
+*           -1	Failure
+*/
 /*----------------------------------------------------------------------------*/
 int
 glSetupNAN(struct GLUE_INFO *prGlueInfo, struct wireless_dev *prNanWdev,
@@ -564,7 +498,7 @@ glSetupNAN(struct GLUE_INFO *prGlueInfo, struct wireless_dev *prNanWdev,
 	prNANInfo = prGlueInfo->aprNANDevInfo[u4Idx];
 
 	if (!prAdapter->fgEnable5GBand)
-		prNanWdev->wiphy->bands[KAL_BAND_5GHZ] = NULL;
+		prNanWdev->wiphy->bands[BAND_5G] = NULL;
 	/* setup netdev */
 	/* Point to shared glue structure */
 	prNetDevPriv = (struct NETDEV_PRIVATE_GLUE_INFO *)netdev_priv(prNanDev);
@@ -595,9 +529,8 @@ glSetupNAN(struct GLUE_INFO *prGlueInfo, struct wireless_dev *prNanWdev,
 
 	kalResetStats(prNanDev);
 
-	/* finish
-	 * bind netdev pointer to netdev index
-	 */
+	/* finish */
+	/* bind netdev pointer to netdev index */
 	prNANInfo->prDevHandler = prNanDev;
 	DBGLOG(INIT, INFO, "setup the nan dev\n");
 
@@ -612,9 +545,9 @@ glSetupNAN(struct GLUE_INFO *prGlueInfo, struct wireless_dev *prNanWdev,
 		}
 		if (u4Idx == NAN_BSS_INDEX_BAND0) {
 			prNetDevPriv->ucBssIdx = ucBssIndex;
-		}
-		wlanBindBssIdxToNetInterface(prGlueInfo, ucBssIndex,
+			wlanBindBssIdxToNetInterface(prGlueInfo, ucBssIndex,
 					(void *)prNANInfo->prDevHandler);
+		}
 	}
 	return 0;
 }
@@ -687,27 +620,20 @@ mtk_nan_wext_set_Multicastlist(struct GLUE_INFO *prGlueInfo)
 		prMCAddrList = kalMemAlloc(
 			MAX_NUM_GROUP_ADDR * ETH_ALEN, VIR_MEM_TYPE);
 
-		if (!prMCAddrList) {
-			DBGLOG(NAN, ERROR, "prMCAddrList is null!\n");
-			return;
-		}
 		netdev_for_each_mc_addr(ha, prDev) {
 			if (i < MAX_NUM_GROUP_ADDR) {
 				kalMemCopy(
 					(prMCAddrList + i * ETH_ALEN),
 					GET_ADDR(ha), ETH_ALEN);
 				DBGLOG(NAN, INFO,
-				       "Set Multicast Address List "
+				       "SEt Multicast Address List "
 				       MACSTR "\n",
 				       MAC2STR(GET_ADDR(ha)));
 				i++;
 			}
 		}
-		if (i >= MAX_NUM_GROUP_ADDR) {
-			kalMemFree(prMCAddrList, VIR_MEM_TYPE,
-			   MAX_NUM_GROUP_ADDR * ETH_ALEN);
+		if (i >= MAX_NUM_GROUP_ADDR)
 			return;
-		}
 
 		wlanoidSetNANMulticastList(
 			prGlueInfo->prAdapter,
@@ -736,21 +662,19 @@ nanSetMulticastListWorkQueueWrapper(struct GLUE_INFO *prGlueInfo)
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief Register for cfg80211 for NAN
- *
- * \param[in] prGlueInfo      Pointer to glue info
- *
- * \return   TRUE
- *           FALSE
- */
+* \brief Register for cfg80211 for NAN
+*
+* \param[in] prGlueInfo      Pointer to glue info
+*
+* \return   TRUE
+*           FALSE
+*/
 /*----------------------------------------------------------------------------*/
 unsigned char
 glRegisterNAN(struct GLUE_INFO *prGlueInfo, const char *prDevName)
 {
 	struct ADAPTER *prAdapter = NULL;
 	uint8_t rMacAddr[6];
-	uint8_t rRandMacAddr[6] = {0};
-	uint8_t rRandMacMask[6] = {0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0};
 	struct wireless_dev *prNanWdev = NULL;
 	struct net_device *prNanDev = NULL;
 	struct wiphy *prWiphy = NULL;
@@ -761,7 +685,6 @@ glRegisterNAN(struct GLUE_INFO *prGlueInfo, const char *prDevName)
 #endif
 	struct _GL_NAN_INFO_T *prNANInfo = (struct _GL_NAN_INFO_T *)NULL;
 	enum NAN_BSS_ROLE_INDEX eRole = NAN_BSS_INDEX_BAND0;
-	uint8_t rMacAddrOverride[PARAM_MAC_ADDR_LEN];
 
 	if (!prGlueInfo) {
 		DBGLOG(NAN, ERROR, "prGlueInfo error!\n");
@@ -804,32 +727,19 @@ glRegisterNAN(struct GLUE_INFO *prGlueInfo, const char *prDevName)
 	/* fill hardware address */
 	COPY_MAC_ADDR(rMacAddr, prAdapter->rMyMacAddr);
 	rMacAddr[0] |= 0x2;
-
-	get_random_mask_addr(rRandMacAddr, rMacAddr, rRandMacMask);
+	if (random_mac_addr_keep_oui(rMacAddr) == -1)
+		DBGLOG(INIT, ERROR, "unable to get random mac for nan\n");
 
 	/* change to local administrated address */
-	rRandMacAddr[0] ^= (eRole + 1) << 3;
-	if (prGlueInfo->prAdapter->rWifiVar.ucNanMacAddrOverride == 1) {
-		wlanHwAddrToBin(
-			prGlueInfo->prAdapter->rWifiVar.aucNanMacAddrStr,
-			rMacAddrOverride);
-		COPY_MAC_ADDR(rRandMacAddr, rMacAddrOverride);
-	}
-	kalMemCopy(prNanDev->dev_addr, rRandMacAddr, ETH_ALEN);
+	rMacAddr[0] ^= (eRole + 1) << 3;
+	kalMemCopy(prNanDev->dev_addr, rMacAddr, ETH_ALEN);
 	kalMemCopy(prNanDev->perm_addr, prNanDev->dev_addr, ETH_ALEN);
-
 
 	if (glSetupNAN(prGlueInfo, prNanWdev, prNanDev, eRole) != 0) {
 		DBGLOG(INIT, WARN, "glSetupnan FAILED\n");
 		free_netdev(prNanDev);
 		return FALSE;
 	}
-
-	/* initialize NAN Scheduler */
-	nanSchedInit(prAdapter);
-
-	/* initialize NAN Discovery Engine */
-	nanDiscInit(prAdapter);
 
 	/* initialize NAN Data Engine */
 
@@ -887,16 +797,16 @@ glNanCreateWirelessDevice(struct GLUE_INFO *prGlueInfo)
 #endif
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief Unregister Net Device for NAN
- *
- * \param[in] prGlueInfo      Pointer to glue info
- *	[in] ucIdx	     The BSS with the idx will be freed.
- *			     "ucIdx == 0xff" will free all BSSs.
- *			     Only has meaning for "CFG_ENABLE_UNIFY_WIPHY == 1"
- *
- * \return   TRUE
- *           FALSE
- */
+* \brief Unregister Net Device for NAN
+*
+* \param[in] prGlueInfo      Pointer to glue info
+*	[in] ucIdx	     The BSS with the idx will be freed.
+*			     "ucIdx == 0xff" will free all BSSs.
+*			     Only has meaning for "CFG_ENABLE_UNIFY_WIPHY == 1"
+*
+* \return   TRUE
+*           FALSE
+*/
 /*----------------------------------------------------------------------------*/
 unsigned char
 glUnregisterNAN(struct GLUE_INFO *prGlueInfo)
@@ -912,11 +822,6 @@ glUnregisterNAN(struct GLUE_INFO *prGlueInfo)
 
 	prAdapter = prGlueInfo->prAdapter;
 
-	if (!prAdapter) {
-		DBGLOG(NAN, ERROR, "prAdapter error\n");
-		return FALSE;
-	}
-
 	if (prAdapter->fgIsNanSendRequestToCnm)
 		nanDevSendAbortRequestToCnm(prAdapter);
 
@@ -931,8 +836,6 @@ glUnregisterNAN(struct GLUE_INFO *prGlueInfo)
 	nan_sec_hostapd_deinit();
 	/* Clear pending cipher suite */
 	nanSecFlushCipherList();
-	/* uninitialize NAN Scheduler */
-	nanSchedUninit(prAdapter);
 
 	/* 4 <1> Uninit NAN dev FSM */
 	/* Uninit NAN device FSM */
@@ -943,9 +846,11 @@ glUnregisterNAN(struct GLUE_INFO *prGlueInfo)
 	prNANInfo = prGlueInfo->aprNANDevInfo[ucIdx];
 	if (prNANInfo == NULL)
 		return TRUE;
+
 	{
 		/* don't unregister the dev that share with the AIS */
 		uint32_t u4Idx = 0;
+
 		for (u4Idx = 0; u4Idx < KAL_AIS_NUM; u4Idx++) {
 
 			if (gprWdev[u4Idx] &&
@@ -956,7 +861,7 @@ glUnregisterNAN(struct GLUE_INFO *prGlueInfo)
 			}
 		}
 	}
-	/* 4 <4> Free NAN internal memory */
+	/* 4 <4> Free P2P internal memory */
 	if (!nanFreeInfo(prGlueInfo, ucIdx)) {
 		DBGLOG(INIT, ERROR, "nanFreeInfo FAILED\n");
 		return FALSE;
@@ -967,11 +872,11 @@ glUnregisterNAN(struct GLUE_INFO *prGlueInfo)
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief
- *       run nan init procedure, glue register nan and set nan registered flag
- *
- * \retval 1     Success
- */
+* \brief
+*       run nan init procedure, glue register nan and set nan registered flag
+*
+* \retval 1     Success
+*/
 /*----------------------------------------------------------------------------*/
 unsigned char
 nanLaunch(struct GLUE_INFO *prGlueInfo)
@@ -994,11 +899,11 @@ nanLaunch(struct GLUE_INFO *prGlueInfo)
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief
- *       run NAN exit procedure, glue unregister NAN and set NAN registered flag
- *
- * \retval 1     Success
- */
+* \brief
+*       run NAN exit procedure, glue unregister NAN and set NAN registered flag
+*
+* \retval 1     Success
+*/
 /*----------------------------------------------------------------------------*/
 unsigned char
 nanRemove(struct GLUE_INFO *prGlueInfo)
@@ -1078,7 +983,7 @@ nanSetSuspendMode(struct GLUE_INFO *prGlueInfo, unsigned char fgEnable)
  */
 /*----------------------------------------------------------------------------*/
 static int
-nanOpen(struct net_device *prDev)
+nanOpen(IN struct net_device *prDev)
 {
 	/* P_GLUE_INFO_T prGlueInfo = NULL; */
 	/* P_ADAPTER_T prAdapter = NULL; */
@@ -1092,7 +997,6 @@ nanOpen(struct net_device *prDev)
 	/* 2. carrier on & start TX queue */
 	/*DFS todo 20161220_DFS*/
 
-	netif_carrier_on(prDev);
 	netif_tx_start_all_queues(prDev);
 
 	return 0; /* success */
@@ -1109,7 +1013,7 @@ nanOpen(struct net_device *prDev)
  */
 /*----------------------------------------------------------------------------*/
 static int
-nanStop(struct net_device *prDev)
+nanStop(IN struct net_device *prDev)
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct ADAPTER *prAdapter = NULL;
@@ -1144,13 +1048,14 @@ nanStop(struct net_device *prDev)
 		return -EFAULT;
 	}
 
-	/* 0. Do the scan done and set parameter to abort if the scan pending
-	 * DBGLOG(INIT, INFO, "p2pStop and ucRoleIdx = %u\n", ucRoleIdx);
-	 * TODO flush the scan request
-	 * 1. stop TX queue
-	 * 3. stop queue and turn off carrier
-	 * prGlueInfo->prP2PInfo[0]->eState = PARAM_MEDIA_STATE_DISCONNECTED;
-	 */
+	/* 0. Do the scan done and set parameter to abort if the scan pending */
+	/*DBGLOG(INIT, INFO, "p2pStop and ucRoleIdx = %u\n", ucRoleIdx);*/
+	/* TODO flush the scan request */
+
+	/* 1. stop TX queue */
+	/* 3. stop queue and turn off carrier */
+	/*prGlueInfo->prP2PInfo[0]->eState = PARAM_MEDIA_STATE_DISCONNECTED;*/
+	/* TH3 multiple P2P */
 
 	netif_tx_stop_all_queues(prDev);
 	if (netif_carrier_ok(prDev))
@@ -1174,13 +1079,13 @@ nanStop(struct net_device *prDev)
  */
 /*----------------------------------------------------------------------------*/
 struct net_device_stats *
-nanGetStats(struct net_device *prDev)
+nanGetStats(IN struct net_device *prDev)
 {
 	return (struct net_device_stats *)kalGetStats(prDev);
 } /* end of nanGetStats() */
 
 static void
-nanSetMulticastList(struct net_device *prDev)
+nanSetMulticastList(IN struct net_device *prDev)
 {
 	struct GLUE_INFO *prGlueInfo = (struct GLUE_INFO *)NULL;
 	uint8_t ucRoleIdx = NAN_BSS_INDEX_BAND0;
@@ -1197,8 +1102,9 @@ nanSetMulticastList(struct net_device *prDev)
 	}
 	/* TO-DO MulticastList Support */
 	if (g_aprNanMultiDev[ucRoleIdx].fgBMCFilterSet == FALSE) {
+
 		g_aprNanMultiDev[ucRoleIdx].fgBMCFilterSet = TRUE;
-		/* Mark HALT, notify main thread to finish current job */
+		/* Mark HALT, notify main thread to finish current job*/
 		set_bit(GLUE_FLAG_NAN_MULTICAST_BIT,
 			&prGlueInfo->ulFlag);
 		/* wake up main thread */
@@ -1208,26 +1114,25 @@ nanSetMulticastList(struct net_device *prDev)
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief This function is TX entry point of NET DEVICE.
- *
- * \param[in] prSkb  Pointer of the sk_buff to be sent
- * \param[in] prDev  Pointer to struct net_device
- *
- * \retval NETDEV_TX_OK - on success.
- * \retval NETDEV_TX_BUSY - on failure, packet will be discarded
- *                          by upper layer.
+ * * \brief This function is TX entry point of NET DEVICE.
+ * *
+ * * \param[in] prSkb  Pointer of the sk_buff to be sent
+ * * \param[in] prDev  Pointer to struct net_device
+ * *
+ * * \retval NETDEV_TX_OK - on success.
+ * * \retval NETDEV_TX_BUSY - on failure, packet will be discarded
+ * *                          by upper layer.
  */
 /*----------------------------------------------------------------------------*/
 netdev_tx_t
-nanHardStartXmit(struct sk_buff *prSkb, struct net_device *prDev)
+nanHardStartXmit(IN struct sk_buff *prSkb, IN struct net_device *prDev)
 {
 	struct NETDEV_PRIVATE_GLUE_INFO *prNetDevPrivate =
 		(struct NETDEV_PRIVATE_GLUE_INFO *)NULL;
 	struct GLUE_INFO *prGlueInfo = NULL;
 	uint8_t ucBssIndex;
+	struct TX_PACKET_INFO prTxPktInfo;
 	struct STA_RECORD *prStaRec;
-	struct _NAN_SPECIFIC_BSS_INFO_T *prNANSpecInfo = NULL;
-	uint8_t aucMacDestAddr[MAC_ADDR_LEN];
 
 	if (!prSkb) {
 		DBGLOG(NAN, ERROR, "prSkb error!\n");
@@ -1242,46 +1147,27 @@ nanHardStartXmit(struct sk_buff *prSkb, struct net_device *prDev)
 	prGlueInfo = prNetDevPrivate->prGlueInfo;
 	ucBssIndex = prNetDevPrivate->ucBssIdx;
 
-	prNANSpecInfo =
-		nanGetSpecificBssInfo(prGlueInfo->prAdapter,
-#if (CFG_SUPPORT_NAN_DBDC == 1)
-		NAN_BSS_INDEX_BAND1
-#else
-		NAN_BSS_INDEX_BAND0
-#endif
-	);
+#if (CFG_SUPPORT_DBDC == 1)
+	if (kalQoSFrameClassifierAndPacketInfo(
+			prGlueInfo, prSkb, &prTxPktInfo)) {
 
-	if (prNANSpecInfo == NULL) {
-		DBGLOG(NAN, ERROR, "prNANSpecInfo is NULL!\n");
-		return NETDEV_TX_BUSY;
-	}
-
-	/* Get DA to determine BSS */
-	COPY_MAC_ADDR(aucMacDestAddr, prSkb->data);
-
-	if (IS_BMCAST_MAC_ADDR(aucMacDestAddr)) {
-		ucBssIndex = prNANSpecInfo->ucBssIndex;
-		DBGLOG(NAN, LOUD,
-			"TX with DA = BMCAST, ucBssIndex=%d\n",
-			ucBssIndex);
-	} else {
-		prStaRec = nanGetStaRecByNDI(prGlueInfo->prAdapter,
-					     aucMacDestAddr);
-		if (prStaRec != NULL) {
-			ucBssIndex = prStaRec->ucBssIndex;
-			DBGLOG(NAN, LOUD, "Starec bssIndex:%d\n",
-						ucBssIndex);
+		if (IS_BMCAST_MAC_ADDR(prTxPktInfo.aucEthDestAddr)) {
+			DBGLOG(NAN, LOUD, "TX with DA = BMCAST\n");
+		} else {
+			prStaRec = nanGetStaRecByNDI(prGlueInfo->prAdapter,
+				prTxPktInfo.aucEthDestAddr);
+			if (prStaRec != NULL) {
+				ucBssIndex = prStaRec->ucBssIndex;
+				DBGLOG(NAN, LOUD, "Starec bssIndex:%d\n",
+							ucBssIndex);
+			}
 		}
 	}
+#endif
 
 	kalResetPacket(prGlueInfo, (void *)prSkb);
 
-	if (kalHardStartXmit(prSkb, prDev, prGlueInfo,
-			     ucBssIndex) == WLAN_STATUS_SUCCESS) {
-		/* Successfully enqueue to Tx queue */
-		if (netif_carrier_ok(prDev))
-			kalPerMonStart(prGlueInfo);
-	}
+	kalHardStartXmit(prSkb, prDev, prGlueInfo, ucBssIndex);
 
 	return NETDEV_TX_OK;
 } /* end of p2pHardStartXmit() */
@@ -1470,15 +1356,6 @@ nanDoIOCTL(struct net_device *prDev, struct ifreq *prIfReq, int i4Cmd)
 	return ret;
 } /* end of p2pDoIOCTL() */
 
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
-int nanDoPrivIOCTL(struct net_device *prDev, struct ifreq *prIfReq,
-		void __user *prData, int i4Cmd)
-{
-	return nanDoIOCTL(prDev, prIfReq, i4Cmd);
-}
-#endif
-
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief To report the private supported IOCTLs table to user space.
@@ -1494,9 +1371,9 @@ int nanDoPrivIOCTL(struct net_device *prDev, struct ifreq *prIfReq,
  */
 /*----------------------------------------------------------------------------*/
 int
-mtk_nan_wext_get_priv(struct net_device *prDev,
-		      struct iw_request_info *info,
-		      union iwreq_data *wrqu, char *extra)
+mtk_nan_wext_get_priv(IN struct net_device *prDev,
+		      IN struct iw_request_info *info,
+		      IN OUT union iwreq_data *wrqu, IN OUT char *extra)
 {
 	struct iw_point *prData = (struct iw_point *)&wrqu->data;
 	uint16_t u2BufferSize = 0;

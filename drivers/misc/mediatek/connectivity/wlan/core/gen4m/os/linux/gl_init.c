@@ -105,15 +105,6 @@
 #include "gl_sys.h"
 #include "fw_dl.h"
 
-/* Changes for MAC Address issue start */
-#define WIFI_MAC_ADDRESS_FILE "efs/wifi/.mac.info"
-#define WIFI_MAC_ADDRESS_STR_LEN 17
-#ifdef MODULE
-#define WLAN_MODULE_NAME  module_name(THIS_MODULE)
-#else
-#define WLAN_MODULE_NAME  "wlan"
-#endif
-/* Changes for MAC Address issue end */
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -1195,7 +1186,7 @@ static const struct wiphy_vendor_command
 	{
 		{
 			.vendor_id = OUI_MTK,
-			.subcmd = MTK_SUBCMD_NAN
+			.subcmd = NL80211_VENDOR_SUBCMD_NAN
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 				WIPHY_VENDOR_CMD_NEED_NETDEV |
@@ -1203,13 +1194,14 @@ static const struct wiphy_vendor_command
 		.doit = mtk_cfg80211_vendor_nan
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 		,
-		.policy = VENDOR_CMD_RAW_DATA
+		.policy = mtk_wlan_vendor_nan_policy,
+		.maxattr = NL80211_ATTR_MAX
 #endif
 	},
 	{
 		{
 			.vendor_id = OUI_MTK,
-			.subcmd = MTK_SUBCMD_NDP
+			.subcmd = NL80211_VENDOR_SUBCMD_NDP
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 				WIPHY_VENDOR_CMD_NEED_NETDEV |
@@ -1240,7 +1232,7 @@ static const struct wiphy_vendor_command
 	{
 		{
 			.vendor_id = OUI_MTK,
-			.subcmd = MTK_SUBCMD_TRIGGER_RESET
+			.subcmd = WIFI_SUBCMD_TRIGGER_RESET
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 				WIPHY_VENDOR_CMD_NEED_NETDEV,
@@ -1342,14 +1334,10 @@ static const struct nl80211_vendor_cmd_info
 		.vendor_id = OUI_QCA,
 		.subcmd = NL80211_VENDOR_SUBCMD_DFS_OFFLOAD_RADAR_DETECTED
 	},
-	[WIFI_EVENT_SUBCMD_NAN] {
+	{
 		.vendor_id = OUI_MTK,
-		.subcmd = MTK_SUBCMD_NAN
-	},
-	[WIFI_EVENT_SUBCMD_NDP] {
-		.vendor_id = OUI_MTK,
-		.subcmd = MTK_SUBCMD_NDP
-	},
+		.subcmd = MTK_NL80211_TRIGGER_RESET
+	}
 };
 #endif
 
@@ -1650,96 +1638,6 @@ u16 wlanSelectQueue(struct net_device *dev,
 }
 #endif
 
-/* Changes for MAC Address issue start */
-uint8_t char2Hex(uint8_t mByte)
-{
-    uint8_t temp = 0x0;
-    if (mByte >= 'A' && mByte <= 'F') {
-        temp = mByte - 'A' + 10;
-    } else if (mByte >= 'a' && mByte <= 'f') {
-        temp = mByte - 'a' + 10;
-    } else if (mByte >= '0' && mByte <= '9') {
-        temp = mByte - '0';
-    } else {
-        temp = 0xff;
-    }
-    return temp;
-}
-
-uint8_t catChar2Hex(uint8_t hByte, uint8_t lByte)
-{
-    return (char2Hex(hByte) << 4) | char2Hex(lByte);
-}
-
-void print_nv_data(char *title, char *data, int len)
-{
-    char str[1536] = {0};
-    int i = 0, j = 0;
-
-    if(strlen(title) + len*5 > 1500)
-        return;
-    if(snprintf(str, sizeof(str), "[%s] ", title) < 0) {
-        DBGLOG(INIT, ERROR,"snprintf error!\n");
-        return;
-    }
-    j += 3 + strlen(title);
-    for(i = 0; i < len; i++) {
-        if(snprintf(str + j, sizeof(str) - j, "0x%02X ", *(data + i)) < 0) {
-            DBGLOG(INIT, ERROR,"snprintf error!\n");
-            return;
-        }
-        j += 5;
-    }
-    DBGLOG(INIT, INFO,"%s\n", str);
-}
-
-void fetch_vendor_addr(struct REG_INFO *prRegInfo)
-{
-    struct file *fp;
-    mm_segment_t fs;
-    loff_t pos;
-    uint8_t macAddr[WIFI_MAC_ADDRESS_STR_LEN + 1];
-    int i;
-
-    pr_info("%s: [hdd_wlan_get_mac_address_from_efs]path=%s\n", WLAN_MODULE_NAME, WIFI_MAC_ADDRESS_FILE);
-    fp = filp_open(WIFI_MAC_ADDRESS_FILE, O_RDONLY, 0);
-    if(IS_ERR(fp)) {
-        pr_info("%s: Open mac info file fail, errno=%ld\n", WLAN_MODULE_NAME, PTR_ERR(fp));
-        return;
-    }
-    fs = get_fs();
-    set_fs(KERNEL_DS);
-    pos = 0;
-    vfs_read(fp, macAddr, WIFI_MAC_ADDRESS_STR_LEN, &pos);
-    filp_close(fp, NULL);
-    set_fs(fs);
-    macAddr[WIFI_MAC_ADDRESS_STR_LEN] = '\0';
-    pr_info("%s: Get mac address:%s\n", WLAN_MODULE_NAME, macAddr);
-
-    //Must match xx:xx:xx:xx:xx:xx
-    for (i = 2; i < WIFI_MAC_ADDRESS_STR_LEN; i += 3) {
-        if (macAddr[i] != ':') {
-            pr_info("%s: [0]Invalid MAC from efs: %s\n", WLAN_MODULE_NAME, macAddr);
-            return;
-        }
-    }
-
-    for (i = 0; i < WIFI_MAC_ADDRESS_STR_LEN; i += 3) {
-        if (char2Hex(macAddr[i]) == 0xff || char2Hex(macAddr[i + 1]) == 0xff) {
-            pr_info("%s: [1]Invalid MAC from efs: %s\n", WLAN_MODULE_NAME, macAddr);
-            return;
-        } else {
-            prRegInfo->prNvramSettings->aucMacAddress[i / 3] = catChar2Hex(macAddr[i], macAddr[i + 1]);
-            prRegInfo->aucMacAddr[i / 3] = catChar2Hex(macAddr[i], macAddr[i + 1]);
-        }
-    }
-
-    //print_nv_data("aucMacAddress",prNvramSettings->aucMacAddress,sizeof(prNvramSettings->aucMacAddress));
-    print_nv_data("prRegInfo",prRegInfo->aucMacAddr,sizeof(prRegInfo->aucMacAddr));
-}
-
-/* Changes for MAC Address issue end */
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Load NVRAM data and translate it into REG_INFO_T
@@ -1778,26 +1676,16 @@ static void glLoadNvram(struct GLUE_INFO *prGlueInfo,
 	prRegInfo->prNvramSettings =
 		(struct WIFI_CFG_PARAM_STRUCT *)&g_aucNvram[0];
 	prNvramSettings = prRegInfo->prNvramSettings;
-/* Changes for MAC Address issue start */
-        fetch_vendor_addr(prRegInfo);
-/* Changes for MAC Address issue end */
+
 #if CFG_TC1_FEATURE
 		TC1_FAC_NAME(FacReadWifiMacAddr)(prRegInfo->aucMacAddr);
 		DBGLOG(INIT, INFO,
 			"MAC address: " MACSTR, MAC2STR(prRegInfo->aucMacAddr));
-/* Changes for MAC Address issue start */
-		DBGLOG(INIT, INFO,"Read MAC addr from prRegInfo");
-		print_nv_data("prRegInfo",prRegInfo->aucMacAddr,sizeof(prRegInfo->aucMacAddr));
-/* Changes for MAC Address issue end */
 #else
 	/* load MAC Address */
 	kalMemCopy(prRegInfo->aucMacAddr,
 			prNvramSettings->aucMacAddress,
 			PARAM_MAC_ADDR_LEN*sizeof(uint8_t));
-/* Changes for MAC Address issue start */
-	DBGLOG(INIT, INFO,"Copy MAC addr from prNvramSettings");
-	print_nv_data("prNvramSettings",prNvramSettings->aucMacAddress,sizeof(prNvramSettings->aucMacAddress));
-/* Changes for MAC Address issue end */
 #endif
 		/* load country code */
 		/* cast to wide characters */
@@ -2268,6 +2156,7 @@ netdev_tx_t wlanHardStartXmit(struct sk_buff *prSkb,
 	kalResetPacket(prGlueInfo, (void *) prSkb);
 	if (kalHardStartXmit(prSkb, prDev, prGlueInfo,
 			     ucBssIndex) == WLAN_STATUS_SUCCESS) {
+		/* Successfully enqueue to Tx queue */
 		/* Successfully enqueue to Tx queue */
 		if (netif_carrier_ok(prDev))
 			kalPerMonStart(prGlueInfo);
@@ -2847,7 +2736,7 @@ void wlanUpdateDfsChannelTable(struct GLUE_INFO *prGlueInfo,
 		ARRAY_SIZE(mtk_5ghz_channels),
 		&ucNumOfChannel, aucChannelList);
 
-	if (ucRoleIdx < KAL_P2P_NUM)
+	if (ucRoleIdx >= 0 && ucRoleIdx < KAL_P2P_NUM)
 		prGlueP2pInfo = prGlueInfo->prP2PInfo[ucRoleIdx];
 	else
 		prGlueP2pInfo = prGlueInfo->prP2PInfo[0];
@@ -3701,9 +3590,6 @@ struct wireless_dev *wlanNetCreate(void *pvData,
 	init_completion(&prGlueInfo->rHifHaltComp);
 	init_completion(&prGlueInfo->rRxHaltComp);
 #endif
-#if CFG_SUPPORT_NAN
-	init_completion(&prGlueInfo->rNanHaltComp);
-#endif
 
 #if CFG_SUPPORT_NCHO
 	init_completion(&prGlueInfo->rAisChGrntComp);
@@ -3950,7 +3836,7 @@ void wlanSetMcGroupList(struct GLUE_INFO *prGlueInfo,
 
 		up(&g_halt_sem);
 		if (u2GroupAddrCount > 0) {
-			if (prNum && prAddrList) {
+			if (prNum) {
 				kalMemCopy(
 				&prAddrList[MAC_ADDR_LEN * u2GroupAddrCount],
 				aucDstMcAddr, MAC_ADDR_LEN);
@@ -4092,20 +3978,6 @@ void wlanSetSuspendMode(struct GLUE_INFO *prGlueInfo,
 		kalSetNetAddressFromInterface(prGlueInfo, prDev, fgEnable);
 		wlanNotifyFwSuspend(prGlueInfo, prDev, fgEnable);
 	}
-
-#if CFG_SUPPORT_NAN
-	if (prGlueInfo->prAdapter->fgIsNANRegistered) {
-		if (fgEnable) {
-			DBGLOG(NAN, INFO,
-				"Enter suspend mode, SetDWInterval 8\n");
-			nanDevSetDWInterval(prGlueInfo->prAdapter, 8);
-		} else {
-			DBGLOG(NAN, INFO,
-				"Leave suspend mode, SetDWInterval 1\n");
-			nanDevSetDWInterval(prGlueInfo->prAdapter, 1);
-		}
-	}
-#endif
 }
 
 #if CFG_ENABLE_EARLY_SUSPEND
@@ -4214,7 +4086,7 @@ void reset_p2p_mode(struct GLUE_INFO *prGlueInfo)
 }
 
 int set_p2p_mode_handler(struct net_device *netdev,
-	struct PARAM_CUSTOM_P2P_SET_STRUCT p2pmode)
+			 struct PARAM_CUSTOM_P2P_SET_STRUCT p2pmode)
 {
 	struct GLUE_INFO *prGlueInfo = *((struct GLUE_INFO **)
 					 netdev_priv(netdev));
@@ -5008,8 +4880,6 @@ void wlanOnPreAdapterStart(struct GLUE_INFO *prGlueInfo,
 
 #if CFG_SUPPORT_NAN
 	prAdapter->fgIsNANfromHAL = TRUE;
-	prAdapter->rPublishInfo.ucNanPubNum = 0;
-	prAdapter->rSubscribeInfo.ucNanSubNum = 0;
 	DBGLOG(INIT, WARN, "NAN fgIsNANfromHAL init %u\n",
 	       prAdapter->fgIsNANfromHAL);
 #endif
@@ -5133,10 +5003,6 @@ static int32_t wlanOnPreNetRegister(struct GLUE_INFO *prGlueInfo,
 
 	/* send regulatory information to firmware */
 	rlmDomainSendInfoToFirmware(prAdapter);
-
-#if CFG_SUPPORT_CRYPTO
-	g_prAdapter = prAdapter;
-#endif
 
 	/* set MAC address */
 	if (!bAtResetFlow) {
@@ -5403,33 +5269,19 @@ int32_t wlanOnWhenProbeSuccess(struct GLUE_INFO *prGlueInfo,
 }
 
 #if CFG_SUPPORT_NAN
-int set_nan_handler(struct net_device *netdev, uint32_t ucEnable,
-	uint8_t fgIsHoldRtnlLock)
+int set_nan_handler(struct net_device *netdev, uint32_t ucEnable)
 {
 	struct GLUE_INFO *prGlueInfo =
 		*((struct GLUE_INFO **)netdev_priv(netdev));
 	uint32_t rWlanStatus = WLAN_STATUS_SUCCESS;
 	uint32_t u4BufLen = 0;
-#ifdef CFG_DRIVER_INITIAL_RUNNING_MODE
-#define NAN_DISABLE_P2P_MODE \
-	(CFG_DRIVER_INITIAL_RUNNING_MODE <= RUNNING_DUAL_P2P_MODE)
-#else
-#define NAN_DISABLE_P2P_MODE (0)
-#endif
 
-	if (kalIsResetting())
-		return 0;
-
-	if (prGlueInfo->prAdapter->fgIsNANRegistered && ucEnable)
-		return 0;
-	else if ((!prGlueInfo->prAdapter->fgIsNANRegistered) && (!ucEnable))
-		return 0;
-
-#if (NAN_DISABLE_P2P_MODE == 1)
-	/* Disable p2p */
 	if ((!ucEnable) && (kalIsResetting() == FALSE)) {
-		nanNetUnregister(prGlueInfo, fgIsHoldRtnlLock);
+		nanNetUnregister(prGlueInfo, FALSE);
+		wlanOnP2pRegistration(prGlueInfo,
+			prGlueInfo->prAdapter, gprWdev[0]);
 	}
+
 	if (ucEnable) {
 		struct PARAM_CUSTOM_P2P_SET_STRUCT rSetP2P;
 
@@ -5437,10 +5289,6 @@ int set_nan_handler(struct net_device *netdev, uint32_t ucEnable,
 		rSetP2P.u4Enable = 0;
 		set_p2p_mode_handler(netdev, rSetP2P);
 	}
-#else
-	if (!ucEnable)
-		nanNetUnregister(prGlueInfo, fgIsHoldRtnlLock);
-#endif
 
 	rWlanStatus = kalIoctl(prGlueInfo, wlanoidSetNANMode, (void *)&ucEnable,
 			       sizeof(uint32_t), FALSE, FALSE, TRUE, &u4BufLen);
@@ -5452,18 +5300,9 @@ int set_nan_handler(struct net_device *netdev, uint32_t ucEnable,
 	 * in this case, kalIOCTL return success always,
 	 * and prGlueInfo->prP2PInfo[0] may be NULL
 	 */
-	/* Fixme: error handling */
 	if ((ucEnable) && (prGlueInfo->prAdapter->fgIsNANRegistered) &&
-		(kalIsResetting() == FALSE))
-		nanNetRegister(prGlueInfo, fgIsHoldRtnlLock);
-
-#if (NAN_DISABLE_P2P_MODE == 1)
-	/* Disable p2p */
-	if ((!ucEnable) && (kalIsResetting() == FALSE)) {
-		wlanOnP2pRegistration(prGlueInfo,
-			prGlueInfo->prAdapter, gprWdev[0]);
-	}
-#endif
+	    (kalIsResetting() == FALSE))
+		nanNetRegister(prGlueInfo, FALSE); /* Fixme: error handling */
 
 	return 0;
 }
@@ -6318,7 +6157,7 @@ static void wlanRemove(void)
 		DBGLOG(INIT, INFO, "NANNetUnregister...\n");
 		nanNetUnregister(prGlueInfo, FALSE);
 		DBGLOG(INIT, INFO, "nanRemove...\n");
-		/* nanRemove must before wlanAdapterStop */
+		/*p2pRemove must before wlanAdapterStop */
 		nanRemove(prGlueInfo);
 	}
 	kalReleaseUserSock(prGlueInfo);
@@ -6507,9 +6346,6 @@ static int initWlan(void)
 		kalUninitIOBuffer();
 		return ret;
 	}
-#if WLAN_INCLUDE_PROC
-	//procInitFs();
-#endif
 #if (CFG_CHIP_RESET_SUPPORT)
 	glResetInit(prGlueInfo);
 #endif
@@ -6626,9 +6462,6 @@ static void exitWlan(void)
 
 }				/* end of exitWlan() */
 
-#if ((MTK_WCN_HIF_SDIO == 1) && (CFG_BUILT_IN_DRIVER == 1)) || \
-	((MTK_WCN_HIF_AXI == 1) && (CFG_BUILT_IN_DRIVER == 1))
-
 int mtk_wcn_wlan_gen4_init(void)
 {
 	return initWlan();
@@ -6640,9 +6473,3 @@ void mtk_wcn_wlan_gen4_exit(void)
 	return exitWlan();
 }
 EXPORT_SYMBOL(mtk_wcn_wlan_gen4_exit);
-
-#elif ((MTK_WCN_HIF_SDIO == 0) && (CFG_BUILT_IN_DRIVER == 1))
-
-device_initcall(initWlan);
-
-#endif

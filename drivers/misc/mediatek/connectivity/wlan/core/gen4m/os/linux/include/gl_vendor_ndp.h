@@ -75,21 +75,9 @@
 
 #define PACKED __packed
 
-/* NDI Interface Create */
-struct NdiIfaceCreate {
-	uint16_t u2NdpTransactionId;
-	char *pucIfaceName;
-} PACKED;
-
-/* NDI Interface Delete */
-struct NdiIfaceDelete {
-	uint16_t u2NdpTransactionId;
-	char *pucIfaceName;
-} PACKED;
-
 extern struct NanDataPathInitiatorNDPE g_ndpReqNDPE;
-extern uint8_t g_aucNanServiceName[NAN_MAX_SERVICE_NAME_LEN];
-extern uint8_t g_aucNanServiceId[6];
+extern const struct nla_policy
+	mtk_wlan_vendor_ndp_policy[MTK_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1];
 
 enum mtk_wlan_ndp_sub_cmd {
 	MTK_WLAN_VENDOR_ATTR_NDP_INVALID = 0,
@@ -125,9 +113,8 @@ enum mtk_wlan_vendor_attr_ndp_params {
 	MTK_WLAN_VENDOR_ATTR_NDP_SUBCMD,
 	/* Unsigned 16-bit value */
 	MTK_WLAN_VENDOR_ATTR_NDP_TRANSACTION_ID,
-	/* NL attributes for data used NDP SUB cmds
-	 * Unsigned 32-bit value indicating a service info
-	 */
+	/* NL attributes for data used NDP SUB cmds */
+	/* Unsigned 32-bit value indicating a service info */
 	MTK_WLAN_VENDOR_ATTR_NDP_SERVICE_INSTANCE_ID,
 	/* Unsigned 32-bit value; channel frequency in MHz */
 	MTK_WLAN_VENDOR_ATTR_NDP_CHANNEL,
@@ -219,18 +206,13 @@ enum mtk_wlan_vendor_attr_ndp_cfg_security {
 	MTK_WLAN_VENDOR_ATTR_NDP_SECURITY_TYPE = 1,
 };
 
-extern const struct nla_policy
-	mtk_wlan_vendor_ndp_policy[MTK_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1];
-
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
- */
-uint32_t nanNdiCreateRspEvent(struct ADAPTER *prAdapter,
-				struct NdiIfaceCreate rNdiInterfaceCreate);
+*/
+uint32_t nanNdiCreateRspEvent(struct ADAPTER *prAdapter);
 
-uint32_t nanNdiDeleteRspEvent(struct ADAPTER *prAdapter,
-				struct NdiIfaceDelete rNdiInterfaceDelete);
+uint32_t nanNdiDeleteRspEvent(struct ADAPTER *prAdapter);
 
 uint32_t nanNdpInitiatorRspEvent(struct ADAPTER *prAdapter,
 				 struct _NAN_NDP_INSTANCE_T *prNDP,
@@ -241,30 +223,29 @@ uint32_t nanNdpResponderRspEvent(struct ADAPTER *prAdapter,
 				 uint32_t rTxDoneStatus);
 
 uint32_t nanNdpEndRspEvent(struct ADAPTER *prAdapter,
-				 enum _ENUM_DP_PROTOCOL_REASON_CODE_T eReason,
-				 uint16_t u2TransId,
-				 uint32_t rTxDoneStatus);
+			   struct _NAN_NDP_INSTANCE_T *prNDP,
+			   uint32_t rTxDoneStatus);
 
-int32_t nanNdiCreateHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
+uint32_t nanNdiCreateHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
 
-int32_t nanNdiDeleteHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
+uint32_t nanNdiDeleteHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
 
-int32_t nanNdpInitiatorReqHandler(struct GLUE_INFO *prGlueInfo,
+uint32_t nanNdpInitiatorReqHandler(struct GLUE_INFO *prGlueInfo,
 				   struct nlattr **tb);
 
-int32_t nanNdpResponderReqHandler(struct GLUE_INFO *prGlueInfo,
+uint32_t nanNdpResponderReqHandler(struct GLUE_INFO *prGlueInfo,
 				   struct nlattr **tb);
 
-int32_t nanNdpEndReqHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
+uint32_t nanNdpEndReqHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
 
-uint32_t nanNdpDataIndEvent(struct ADAPTER *prAdapter,
+uint32_t nanNdpDataIndEvent(IN struct ADAPTER *prAdapter,
 			    struct _NAN_NDP_INSTANCE_T *prNDP,
 			    struct _NAN_NDL_INSTANCE_T *prNDL);
 
-uint32_t nanNdpDataConfirmEvent(struct ADAPTER *prAdapter,
+uint32_t nanNdpDataConfirmEvent(IN struct ADAPTER *prAdapter,
 				struct _NAN_NDP_INSTANCE_T *prNDP);
 
-uint32_t nanNdpDataTerminationEvent(struct ADAPTER *prAdapter,
+uint32_t nanNdpDataTerminationEvent(IN struct ADAPTER *prAdapter,
 				    struct _NAN_NDP_INSTANCE_T *prNDP);
 
 int mtk_cfg80211_vendor_ndp(struct wiphy *wiphy, struct wireless_dev *wdev,

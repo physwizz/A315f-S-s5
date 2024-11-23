@@ -244,46 +244,29 @@ void nic_rxd_v2_fill_rfb(
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_4);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 4 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup4,
-			sizeof(struct HW_MAC_RX_STS_GROUP_4));
 	}
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_1)) {
 		prSwRfb->prRxStatusGroup1 = (struct HW_MAC_RX_STS_GROUP_1 *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_1);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 1 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup1,
-				sizeof(struct HW_MAC_RX_STS_GROUP_1));
 	}
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_2)) {
 		prSwRfb->prRxStatusGroup2 = (struct HW_MAC_RX_STS_GROUP_2 *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_2);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 2 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup2,
-				sizeof(struct HW_MAC_RX_STS_GROUP_2));
 	}
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_3)) {
 		prSwRfb->prRxStatusGroup3 = (void *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_3_V2);
-
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 3 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup3,
-				sizeof(struct HW_MAC_RX_STS_GROUP_3_V2));
 	}
 
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_5)) {
 		prSwRfb->prRxStatusGroup5 = (struct HW_MAC_RX_STS_GROUP_5 *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += prChipInfo->group5_size;
-
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 5 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup5,
-				prChipInfo->group5_size);
 	}
 
 
@@ -370,12 +353,10 @@ void nic_rxd_v2_parse_drop_pkt(struct SW_RFB *prSwRfb,
 			((uint8_t *)prSwRfb->pvHeader +
 			2 * MAC_ADDR_LEN);
 	DBGLOG(RX, INFO,
-		"u2PacketLen:%d ucSecMode:%d ucWlanIdx:%d ucStaRecIdx:%d, bc:%d, mc:%d, cipher:%d, bss:%d\n",
+		"u2PacketLen:%d ucSecMode:%d ucWlanIdx:%d ucStaRecIdx:%d\n",
 		prSwRfb->u2PacketLen, prSwRfb->ucSecMode,
-		prSwRfb->ucWlanIdx, prSwRfb->ucStaRecIdx,
-		prSwRfb->fgIsBC,
-		prSwRfb->fgIsMC,
-		prSwRfb->fgIsCipherMS);
+		prSwRfb->ucWlanIdx, prSwRfb->ucStaRecIdx
+	);
 	STATS_RX_PKT_INFO_DISPLAY(prSwRfb, prAdapter, ucBssIndex);
 }
 
@@ -391,10 +372,6 @@ u_int8_t nic_rxd_v2_sanity_check(
 	prChipInfo = prAdapter->chip_info;
 	prRxStatus = (struct HW_MAC_CONNAC2X_RX_DESC *)prSwRfb->prRxStatus;
 
-	ucBssIndex =
-		secGetBssIdxByWlanIdx(prAdapter,
-		HAL_MAC_CONNAC2X_RX_STATUS_GET_WLAN_IDX(prRxStatus));
-
 	if (!HAL_MAC_CONNAC2X_RX_STATUS_IS_FCS_ERROR(prRxStatus)
 	    && !HAL_MAC_CONNAC2X_RX_STATUS_IS_DAF(prRxStatus)
 	    && !HAL_MAC_CONNAC2X_RX_STATUS_IS_ICV_ERROR(prRxStatus)
@@ -409,6 +386,10 @@ u_int8_t nic_rxd_v2_sanity_check(
 		else if (HAL_MAC_CONNAC2X_RX_STATUS_IS_FRAG(prRxStatus))
 			prSwRfb->fgFragFrame = TRUE;
 	} else {
+		ucBssIndex =
+			secGetBssIdxByWlanIdx(prAdapter,
+			HAL_MAC_CONNAC2X_RX_STATUS_GET_WLAN_IDX(prRxStatus));
+
 		DBGLOG(RX, TEMP, "Sanity check to drop\n");
 		fgDrop = TRUE;
 		if (!HAL_MAC_CONNAC2X_RX_STATUS_IS_ICV_ERROR(prRxStatus)
@@ -477,15 +458,6 @@ u_int8_t nic_rxd_v2_sanity_check(
 			fgDrop = FALSE;
 			DBGLOG(RSN, INFO,
 				"Don't drop eapol or wpi packet\n");
-#if CFG_SUPPORT_NAN
-		} else if ((ucBssIndex < MAX_BSSID_NUM)
-			&& (GET_BSS_INFO_BY_INDEX(prAdapter,
-			ucBssIndex)->eNetworkType == NETWORK_TYPE_NAN)
-			&& (prSwRfb->fgIsBC | prSwRfb->fgIsMC)) {
-			fgDrop = FALSE;
-			DBGLOG(RSN, INFO,
-				"Don't drop NAN MC pkt for sec\n");
-#endif
 		} else {
 			nic_rxd_v2_parse_drop_pkt(prSwRfb,
 				prAdapter, ucBssIndex);
@@ -534,12 +506,20 @@ void nic_rxd_v2_check_wakeup_reason(
 	struct HW_MAC_CONNAC2X_RX_DESC *prRxStatus;
 	uint16_t u2PktLen = 0;
 	uint32_t u4HeaderOffset;
+	u_int8_t fgDrop = FALSE;
 
 	prChipInfo = prAdapter->chip_info;
 
 	prRxStatus = (struct HW_MAC_CONNAC2X_RX_DESC *) prSwRfb->prRxStatus;
 	if (!prRxStatus)
 		return;
+
+	fgDrop = nic_rxd_v2_sanity_check(prAdapter, prSwRfb);
+	if (fgDrop) {
+		DBGLOG(RX, WARN,
+			"%s: sanity check failed. drop!\n", __func__);
+		return;
+	}
 
 	prSwRfb->ucGroupVLD =
 		(uint8_t) HAL_MAC_CONNAC2X_RX_STATUS_GET_GROUP_VLD(prRxStatus);

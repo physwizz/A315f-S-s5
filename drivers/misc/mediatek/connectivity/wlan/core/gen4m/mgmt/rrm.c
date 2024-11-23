@@ -1481,10 +1481,6 @@ static void rrmHandleBeaconReqSubelem(
 					subelems[3 + i];
 			data->apChannelsLen += len;
 
-			// patch work only for MTK patch #96620
-			// 1. return to revision #5 
-			// 2. revert (restore to revision #6)
-			// 3. integration to REL
 			if (data->apChannelsLen) {
 				for (i = 0 ; (end - pos > 3) &&
 					i < data->apChannelsLen; i++) {

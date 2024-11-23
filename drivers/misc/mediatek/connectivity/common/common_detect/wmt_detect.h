@@ -34,7 +34,6 @@
 *                              C O N S T A N T S
 ********************************************************************************
 */
-
 #include "sdio_detect.h"
 #include "wmt_detect_pwr.h"
 #include <mtk_wcn_cmb_stub.h>

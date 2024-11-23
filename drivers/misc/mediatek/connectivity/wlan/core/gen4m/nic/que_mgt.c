@@ -957,7 +957,7 @@ struct QUE *qmDetermineStaTxQueue(IN struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec;
 	enum ENUM_WMM_ACI eAci = WMM_AC_BE_INDEX;
 	u_int8_t fgCheckACMAgain;
-	uint8_t ucTC = 0, ucQueIdx = TX_QUEUE_INDEX_AC0;
+	uint8_t ucTC, ucQueIdx = TX_QUEUE_INDEX_AC0;
 	struct BSS_INFO *prBssInfo;
 	/* BEtoBK, na, VItoBE, VOtoVI */
 	uint8_t aucNextUP[WMM_AC_INDEX_NUM] = {1, 1, 0, 4};
@@ -984,11 +984,10 @@ struct QUE *qmDetermineStaTxQueue(IN struct ADAPTER *prAdapter,
 		if (prStaRec->fgIsQoS) {
 			if (prMsduInfo->ucUserPriority < TX_DESC_TID_NUM) {
 				eAci = aucTid2ACI[prMsduInfo->ucUserPriority];
-				if (eAci < WMM_AC_INDEX_NUM) {
-					ucQueIdx = aucACI2TxQIdx[eAci];
-					ucTC = arNetwork2TcResource[
-						prMsduInfo->ucBssIndex][eAci];
-				}
+				ucQueIdx = aucACI2TxQIdx[eAci];
+				ucTC =
+					arNetwork2TcResource[
+					prMsduInfo->ucBssIndex][eAci];
 			} else {
 				ucQueIdx = TX_QUEUE_INDEX_AC1;
 				ucTC = TC1_INDEX;
@@ -997,8 +996,7 @@ struct QUE *qmDetermineStaTxQueue(IN struct ADAPTER *prAdapter,
 					"Packet TID is not in [0~7]\n");
 				ASSERT(0);
 			}
-			if (eAci < WMM_AC_INDEX_NUM &&
-				(prBssInfo->arACQueParms[eAci].ucIsACMSet) &&
+			if ((prBssInfo->arACQueParms[eAci].ucIsACMSet) &&
 			    !(ucActiveTs & BIT(eAci)) &&
 			    (eAci != WMM_AC_BK_INDEX)) {
 				DBGLOG(WMM, TRACE,
@@ -1322,12 +1320,9 @@ struct MSDU_INFO *qmEnqueueTxPackets(IN struct ADAPTER *prAdapter,
 		}
 #if QM_TC_RESOURCE_EMPTY_COUNTER
 		if (prCurrentMsduInfo->u4PageCount >
-			prTxCtrl->rTc.au4FreePageCount[ucTC]) {
-			if (prCurrentMsduInfo->ucBssIndex < MAX_BSSID_NUM
-				&& ucTC < TC_NUM)
-				prQM->au4QmTcResourceEmptyCounter[
-				prCurrentMsduInfo->ucBssIndex][ucTC]++;
-		}
+			prTxCtrl->rTc.au4FreePageCount[ucTC])
+			prQM->au4QmTcResourceEmptyCounter[
+			prCurrentMsduInfo->ucBssIndex][ucTC]++;
 #endif
 
 #if QM_FAST_TC_RESOURCE_CTRL && QM_ADAPTIVE_TC_RESOURCE_CTRL
@@ -1382,11 +1377,6 @@ void qmDetermineStaRecIndex(IN struct ADAPTER *prAdapter,
 
 	ASSERT(prMsduInfo);
 
-	if (prBssInfo == NULL) {
-		DBGLOG(QM, INFO, "TX with prBssInfo = NULL\n");
-		return;
-	}
-
 	DBGLOG(QM, LOUD,
 		"Msdu BSS Idx[%u] OpMode[%u] StaRecOfApExist[%u]\n",
 		prMsduInfo->ucBssIndex, prBssInfo->eCurrentOPMode,
@@ -1395,9 +1385,6 @@ void qmDetermineStaRecIndex(IN struct ADAPTER *prAdapter,
 	switch (prBssInfo->eCurrentOPMode) {
 	case OP_MODE_IBSS:
 	case OP_MODE_ACCESS_POINT:
-#ifdef CFG_SUPPORT_NAN
-	case OP_MODE_NAN:
-#endif
 		/* 4 <1> DA = BMCAST */
 		if (IS_BMCAST_MAC_ADDR(prMsduInfo->aucEthDestAddr)) {
 			prMsduInfo->ucStaRecIndex = STA_REC_INDEX_BMCAST;
@@ -1492,7 +1479,7 @@ struct QUE *qmDequeueStaTxPackets(IN struct ADAPTER *prAdapter)
 }
 #if CFG_SUPPORT_NAN
 void
-qmUpdateFreeNANQouta(struct ADAPTER *prAdapter,
+qmUpdateFreeNANQouta(IN struct ADAPTER *prAdapter,
 		     struct EVENT_UPDATE_NAN_TX_STATUS *prTxStatus) {
 	struct EVENT_UPDATE_NAN_TX_STATUS *prUpdateTxStatus;
 	uint8_t ucStaIndex = 0;
@@ -1636,8 +1623,7 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_NAN
 #if CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL
 			fgIsNanStaRec = FALSE;
-			if (prBssInfo && prBssInfo->eNetworkType ==
-				NETWORK_TYPE_NAN) {
+			if (prBssInfo->eNetworkType == NETWORK_TYPE_NAN) {
 				fgIsNanStaRec = TRUE;
 				DBGLOG(NAN, TEMP, "NAN STA:%d, TC:%d\n",
 				       prStaRec->ucIndex, ucTC);
@@ -1647,14 +1633,14 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 
 			/* fgIsInPS */
 			/* Absent BSS handling */
-			if (prBssInfo && prBssInfo->fgIsNetAbsent) {
+			if (prBssInfo->fgIsNetAbsent) {
 				if (u4MaxForwardFrameCountLimit >
 					prBssInfo->ucBssFreeQuota)
 					u4MaxForwardFrameCountLimit =
 						prBssInfo->ucBssFreeQuota;
 			}
 #if CFG_SUPPORT_DBDC
-			if (prBssInfo && prAdapter->rWifiVar.fgDbDcModeEn)
+			if (prAdapter->rWifiVar.fgDbDcModeEn)
 				u4MaxResourceLimit =
 					gmGetDequeueQuota(prAdapter,
 						prStaRec, prBssInfo,
@@ -1669,12 +1655,10 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 				/* Quick check remain medium time and pending
 				** packets
 				*/
-				if (prBssInfo) {
-					if (QUEUE_IS_EMPTY(prCurrQueue) ||
-						!wmmAcmCanDequeue(prAdapter,
-						ucAc, 0, prBssInfo->ucBssIndex))
-						goto skip_dequeue;
-				}
+				if (QUEUE_IS_EMPTY(prCurrQueue) ||
+				    !wmmAcmCanDequeue(prAdapter, ucAc, 0,
+				    prBssInfo->ucBssIndex))
+					goto skip_dequeue;
 				fgAcmFlowCtrl = TRUE;
 			} else
 				fgAcmFlowCtrl = FALSE;
@@ -1731,9 +1715,8 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 						rCurrentTime,
 						prStaRec->rNanExpiredSendTime);
 
-					/* avoid to flood the kernel log,
-					 * only the 1st expiry event logged
-					 */
+					/* avoid to flood the kernel log, */
+					/*only the 1st expiry event logged */
 					if (fgExpired &&
 					    !prStaRec->fgNanSendTimeExpired)
 						DBGLOG(NAN, TEMP,
@@ -1755,7 +1738,7 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 #endif
 
 #if CFG_SUPPORT_SOFT_ACM
-				if (prBssInfo && fgAcmFlowCtrl) {
+				if (fgAcmFlowCtrl) {
 					uint32_t u4PktTxTime = 0;
 
 					u4PktTxTime = wmmCalculatePktUsedTime(
@@ -1779,10 +1762,8 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 						PS_FORWARDING_MORE_DATA_ENABLED;
 				}
 				/* to record WMM Set */
-				if (prBssInfo) {
-					prDequeuedPkt->ucWmmQueSet =
-						prBssInfo->ucWmmQueSet;
-				}
+				prDequeuedPkt->ucWmmQueSet =
+					prBssInfo->ucWmmQueSet;
 				QUEUE_INSERT_TAIL(prQue,
 					(struct QUE_ENTRY *)
 					prDequeuedPkt);
@@ -1810,7 +1791,7 @@ skip_dequeue:
 					(*pucPsStaFreeQuota) = 0;
 			}
 
-			if (prBssInfo && prBssInfo->fgIsNetAbsent) {
+			if (prBssInfo->fgIsNetAbsent) {
 				if (prBssInfo->ucBssFreeQuota >=
 					u4CurStaForwardFrameCount)
 					prBssInfo->ucBssFreeQuota -=
@@ -2003,7 +1984,7 @@ qmDequeueTxPacketsFromGlobalQueue(IN struct ADAPTER *prAdapter,
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 			prDequeuedPkt->ucBssIndex);
 
-		if (prBssInfo && IS_BSS_ACTIVE(prBssInfo)) {
+		if (IS_BSS_ACTIVE(prBssInfo)) {
 			if (!prBssInfo->fgIsNetAbsent) {
 				/* to record WMM Set */
 				prDequeuedPkt->ucWmmQueSet =
@@ -3018,116 +2999,6 @@ void qmInitRxQueues(IN struct ADAPTER *prAdapter)
 	/* TODO */
 }
 
-static void processNanBmcRx(struct ADAPTER *prAdapter,
-		struct SW_RFB *prCurrSwRfb,
-		struct WLAN_MAC_HEADER *prWlanHeader, uint16_t u2FrameCtrl)
-{
-#if (CFG_SUPPORT_NAN == 1)
-	struct BSS_INFO *prBssInfo;
-	uint16_t u2MACLen = 0;
-	uint8_t ucBssIndex;
-
-	if (!prCurrSwRfb->prStaRec)
-		prCurrSwRfb->prStaRec =
-			nanGetStaRecByNDI(prAdapter, prWlanHeader->aucAddr2);
-
-	if (!prCurrSwRfb->prStaRec)
-		return;
-
-	ucBssIndex = prCurrSwRfb->prStaRec->ucBssIndex;
-	if (ucBssIndex >= ARRAY_SIZE(prAdapter->aprBssInfo))
-		return;
-
-	prBssInfo = prAdapter->aprBssInfo[ucBssIndex];
-	if (prBssInfo->eNetworkType != NETWORK_TYPE_NAN)
-		return;
-
-	DBGLOG(QM, INFO, "NAN special case for BMC packet\n");
-	if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl))
-		u2MACLen = sizeof(struct WLAN_MAC_HEADER_QOS);
-	else
-		u2MACLen = sizeof(struct WLAN_MAC_HEADER);
-
-	u2MACLen += ETH_LLC_LEN + ETH_SNAP_OUI_LEN;
-	u2MACLen -= ETHER_TYPE_LEN_OFFSET;
-	prCurrSwRfb->pvHeader += u2MACLen;
-	kalMemCopy(prCurrSwRfb->pvHeader, prWlanHeader->aucAddr1, MAC_ADDR_LEN);
-	kalMemCopy(prCurrSwRfb->pvHeader + MAC_ADDR_LEN, prWlanHeader->aucAddr2,
-					MAC_ADDR_LEN);
-	prCurrSwRfb->u2PacketLen -= u2MACLen;
-	/* record StaRec related info */
-	prCurrSwRfb->ucStaRecIdx = prCurrSwRfb->prStaRec->ucIndex;
-	prCurrSwRfb->ucWlanIdx = prCurrSwRfb->prStaRec->ucWlanIndex;
-	GLUE_SET_PKT_BSS_IDX(prCurrSwRfb->pvPacket,
-		secGetBssIdxByWlanIdx(prAdapter, prCurrSwRfb->ucWlanIdx));
-#endif
-}
-
-/**
- * When prCurrSwRfb->prStaRec == NULL, prBssInfo exist and start is connected,
- * fill the information from prBssInfo if address matched.
- * Update these information:
- *   prCurrSwRfb->pvHeader and the MAC address at where it points to
- *   prCurrSwRfb->u2PacketLen
- *   prCurrSwRfb->prStaRec
- *   prCurrSwRfb->ucStaRecIdx
- *   prCurrSwRfb->ucWlanIdx
- */
-static void fillRxNullStaRec(struct ADAPTER *prAdapter,
-		struct SW_RFB *prCurrSwRfb, uint16_t u2FrameCtrl,
-		struct BSS_INFO *prBssInfo,
-		struct WLAN_MAC_HEADER *prWlanHeader)
-{
-	if (!RXM_IS_DATA_FRAME(u2FrameCtrl))
-		return;
-
-	if (!prBssInfo || prBssInfo->eConnectionState != MEDIA_STATE_CONNECTED)
-		return;
-
-	/* rx header translation */
-	DBGLOG(QM, WARN,
-		"RXD Trans: FrameCtrl=0x%02x GVLD=0x%x, StaRecIdx=%u, WlanIdx=%u PktLen=%u\n",
-		u2FrameCtrl, prCurrSwRfb->ucGroupVLD, prCurrSwRfb->ucStaRecIdx,
-		prCurrSwRfb->ucWlanIdx, prCurrSwRfb->u2PacketLen);
-
-	DBGLOG_MEM8(QM, LOUD, prCurrSwRfb->pvHeader,
-			prCurrSwRfb->u2PacketLen < 32 ?
-			prCurrSwRfb->u2PacketLen : 32);
-
-	if (!prBssInfo->prStaRecOfAP)
-		return;
-
-	if (EQUAL_MAC_ADDR(prWlanHeader->aucAddr1, prBssInfo->aucOwnMacAddr) &&
-	    EQUAL_MAC_ADDR(prWlanHeader->aucAddr2, prBssInfo->aucBSSID)) {
-		uint16_t u2MACLen;
-
-		/* QoS data, VHT */
-		if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl))
-			u2MACLen = sizeof(struct WLAN_MAC_HEADER_QOS);
-		else
-			u2MACLen = sizeof(struct WLAN_MAC_HEADER);
-		u2MACLen += ETH_LLC_LEN + ETH_SNAP_OUI_LEN;
-		u2MACLen -= ETHER_TYPE_LEN_OFFSET;
-		prCurrSwRfb->pvHeader =
-			(uint8_t *)prCurrSwRfb->pvHeader + u2MACLen;
-		prCurrSwRfb->u2PacketLen -= u2MACLen;
-		COPY_MAC_ADDR(prCurrSwRfb->pvHeader, prWlanHeader->aucAddr1);
-		COPY_MAC_ADDR((uint8_t *)prCurrSwRfb->pvHeader + MAC_ADDR_LEN,
-				prWlanHeader->aucAddr2);
-
-		/* record StaRec related info */
-		prCurrSwRfb->prStaRec = prBssInfo->prStaRecOfAP;
-		prCurrSwRfb->ucStaRecIdx = prCurrSwRfb->prStaRec->ucIndex;
-		prCurrSwRfb->ucWlanIdx = prCurrSwRfb->prStaRec->ucWlanIndex;
-		GLUE_SET_PKT_BSS_IDX(prCurrSwRfb->pvPacket,
-				secGetBssIdxByWlanIdx(prAdapter,
-					prCurrSwRfb->ucWlanIdx));
-		DBGLOG_MEM8(QM, WARN, prCurrSwRfb->pvHeader,
-				prCurrSwRfb->u2PacketLen < 64 ?
-				prCurrSwRfb->u2PacketLen : 64);
-	}
-}
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Handle RX packets (buffer reordering)
@@ -3275,11 +3146,6 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 					QUEUE_INSERT_TAIL(prReturnedQue,
 						(struct QUE_ENTRY *)
 						prCurrSwRfb);
-
-					NIC_DUMP_ICV_RXD(prAdapter, prRxStatus);
-					NIC_DUMP_ICV_RXP(prCurrSwRfb->pvHeader,
-						prCurrSwRfb->u2PacketLen);
-
 					continue;
 				}
 
@@ -3344,26 +3210,156 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 			}
 #endif /* CFG_SUPPORT_PASSPOINT */
 		} else {
-			struct BSS_INFO *prBssInfo;
-			struct WLAN_MAC_HEADER *prWlanHeader;
-			uint16_t u2FrameCtrl;
+			uint16_t u2FrameCtrl = 0;
+			struct WLAN_MAC_HEADER *prWlanHeader = NULL;
+			struct BSS_INFO *prAisBssInfo = NULL;
 
-			prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
-				secGetBssIdxByWlanIdx(prAdapter,
+			prAisBssInfo = aisGetAisBssInfo(prAdapter,
+				secGetBssIdxByWlanIdx(
+					prAdapter,
 					prCurrSwRfb->ucWlanIdx));
-			prWlanHeader = prCurrSwRfb->pvHeader;
+			prWlanHeader = (struct WLAN_MAC_HEADER *)
+				prCurrSwRfb->pvHeader;
 			u2FrameCtrl = prWlanHeader->u2FrameCtrl;
 			prCurrSwRfb->u2SequenceControl =
 				prWlanHeader->u2SeqCtrl;
+#if (CFG_SUPPORT_NAN == 1)
+			if (prCurrSwRfb->prStaRec == NULL)
+				prCurrSwRfb->prStaRec = nanGetStaRecByNDI(
+					prAdapter, prWlanHeader->aucAddr2);
 
-			if (fgIsBMC)
-				processNanBmcRx(prAdapter, prCurrSwRfb,
-					prWlanHeader, u2FrameCtrl);
+			if (prCurrSwRfb->prStaRec != NULL && fgIsBMC) {
+				struct BSS_INFO *prBssInfo;
 
-			if (!prCurrSwRfb->prStaRec)
-				fillRxNullStaRec(prAdapter, prCurrSwRfb,
-						u2FrameCtrl, prBssInfo,
-						prWlanHeader);
+				prBssInfo = prAdapter->aprBssInfo[
+					prCurrSwRfb->prStaRec->ucBssIndex];
+				if (prBssInfo->eNetworkType ==
+					NETWORK_TYPE_NAN) {
+					uint16_t u2MACLen = 0;
+
+					DBGLOG(QM, INFO,
+						   "NAN special case for BMC packet\n");
+					if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl))
+						u2MACLen = sizeof(
+							struct
+							WLAN_MAC_HEADER_QOS);
+					else
+						u2MACLen =
+							sizeof(struct
+							WLAN_MAC_HEADER);
+					u2MACLen +=
+						ETH_LLC_LEN + ETH_SNAP_OUI_LEN;
+					u2MACLen -=
+						ETHER_TYPE_LEN_OFFSET;
+					prCurrSwRfb->pvHeader += u2MACLen;
+					kalMemCopy(prCurrSwRfb->pvHeader,
+					   prWlanHeader->aucAddr1,
+					   MAC_ADDR_LEN);
+					kalMemCopy(prCurrSwRfb->pvHeader +
+					   MAC_ADDR_LEN,
+					   prWlanHeader->aucAddr2,
+					   MAC_ADDR_LEN);
+					prCurrSwRfb->u2PacketLen -= u2MACLen;
+					/* record StaRec related info */
+					prCurrSwRfb->ucStaRecIdx =
+						prCurrSwRfb->prStaRec->ucIndex;
+					prCurrSwRfb->ucWlanIdx =
+						prCurrSwRfb->
+						prStaRec->ucWlanIndex;
+					GLUE_SET_PKT_BSS_IDX(
+						prCurrSwRfb->pvPacket,
+						secGetBssIdxByWlanIdx(
+							prAdapter,
+							prCurrSwRfb->
+							ucWlanIdx));
+				}
+			}
+#endif
+
+			if (prCurrSwRfb->prStaRec == NULL &&
+				RXM_IS_DATA_FRAME(u2FrameCtrl) &&
+				(prAisBssInfo) &&
+				(prAisBssInfo->eConnectionState ==
+				MEDIA_STATE_CONNECTED)) {
+				/* rx header translation */
+				log_dbg(QM, WARN, "RXD Trans: FrameCtrl=0x%02x GVLD=0x%x, StaRecIdx=%d, WlanIdx=%d PktLen=%d\n",
+					u2FrameCtrl, prCurrSwRfb->ucGroupVLD,
+					prCurrSwRfb->ucStaRecIdx,
+					prCurrSwRfb->ucWlanIdx,
+					prCurrSwRfb->u2PacketLen);
+				DBGLOG_MEM8(QM, LOUD,
+						(uint8_t *)
+						prCurrSwRfb->pvHeader,
+						(prCurrSwRfb->
+						u2PacketLen > 32) ? 32 :
+						prCurrSwRfb->
+						u2PacketLen);
+				if (prAisBssInfo
+				    && prAisBssInfo->prStaRecOfAP)
+				if (EQUAL_MAC_ADDR(
+							prWlanHeader->
+							aucAddr1,
+							prAisBssInfo->
+							aucOwnMacAddr)
+				    && EQUAL_MAC_ADDR(
+							prWlanHeader->
+							aucAddr2,
+							prAisBssInfo->
+							aucBSSID)) {
+					uint16_t u2MACLen = 0;
+					/* QoS data, VHT */
+					if (RXM_IS_QOS_DATA_FRAME(
+						u2FrameCtrl))
+						u2MACLen = sizeof(
+						struct WLAN_MAC_HEADER_QOS);
+					else
+						u2MACLen = sizeof(
+							struct
+							WLAN_MAC_HEADER);
+					u2MACLen +=
+						ETH_LLC_LEN +
+						ETH_SNAP_OUI_LEN;
+					u2MACLen -=
+						ETHER_TYPE_LEN_OFFSET;
+					prCurrSwRfb->pvHeader +=
+						u2MACLen;
+					kalMemCopy(
+						prCurrSwRfb->pvHeader,
+						prWlanHeader->aucAddr1,
+						MAC_ADDR_LEN);
+					kalMemCopy(
+						prCurrSwRfb->pvHeader +
+						MAC_ADDR_LEN,
+						prWlanHeader->aucAddr2,
+						MAC_ADDR_LEN);
+					prCurrSwRfb->u2PacketLen -=
+						u2MACLen;
+
+					/* record StaRec related info */
+					prCurrSwRfb->prStaRec =
+						prAisBssInfo->
+						prStaRecOfAP;
+					prCurrSwRfb->ucStaRecIdx =
+						prCurrSwRfb->prStaRec->
+						ucIndex;
+					prCurrSwRfb->ucWlanIdx =
+						prCurrSwRfb->prStaRec->
+						ucWlanIndex;
+					GLUE_SET_PKT_BSS_IDX(
+						prCurrSwRfb->pvPacket,
+						secGetBssIdxByWlanIdx(
+							prAdapter,
+							prCurrSwRfb->
+							ucWlanIdx));
+					DBGLOG_MEM8(QM, WARN,
+						(uint8_t *)
+						prCurrSwRfb->pvHeader,
+						(prCurrSwRfb->
+						u2PacketLen > 64) ? 64 :
+						prCurrSwRfb->
+						u2PacketLen);
+				}
+			}
 		}
 		/*
 		 * Independent pkt is marked in stats,
@@ -3543,10 +3539,6 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 					RX_NO_INTEREST_DROP_COUNT);
 				QUEUE_INSERT_TAIL(prReturnedQue,
 					(struct QUE_ENTRY *) prCurrSwRfb);
-
-				NIC_DUMP_ICV_RXD(prAdapter, prRxStatus);
-				NIC_DUMP_ICV_RXP(prCurrSwRfb->pvHeader,
-						prCurrSwRfb->u2PacketLen);
 				break;
 			}
 		}
@@ -6669,22 +6661,15 @@ enum ENUM_FRAME_ACTION qmGetFrameAction(IN struct ADAPTER *prAdapter,
 				eFrameAction = FRAME_ACTION_TX_PKT;
 				break;
 			}
-
-#if CFG_SUPPORT_NAN
-			if (prMsduInfo->ucTxToNafQueFlag == TRUE) {
-				eFrameAction = FRAME_ACTION_TX_PKT;
-				break;
-			}
-#endif
 		}
-		/* 4 <2> Drop, if BSS is inactive */
-		if (!prBssInfo) {
-			DBGLOG(QM, INFO,
-				"Drop packets (BSS is NULL)\n");
-			eFrameAction = FRAME_ACTION_DROP_PKT;
+#if CFG_SUPPORT_NAN
+		if (prMsduInfo->ucTxToNafQueFlag == TRUE) {
+			eFrameAction = FRAME_ACTION_TX_PKT;
 			break;
 		}
+#endif
 
+		/* 4 <2> Drop, if BSS is inactive */
 		if (!IS_BSS_ACTIVE(prBssInfo)) {
 			DBGLOG(QM, TRACE,
 				"Drop packets (BSS[%u] is INACTIVE)\n",
@@ -6809,29 +6794,9 @@ void qmHandleEventBssAbsencePresence(IN struct ADAPTER *prAdapter,
 		prEvent->aucBuffer);
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 		prEventBssStatus->ucBssIndex);
-	if (!prBssInfo) {
-		DBGLOG(QM, INFO, "NAF:prBssInfo is NULL\n");
-		return;
-	}
-
 	fgIsNetAbsentOld = prBssInfo->fgIsNetAbsent;
 	prBssInfo->fgIsNetAbsent = prEventBssStatus->ucIsAbsent;
 	prBssInfo->ucBssFreeQuota = prEventBssStatus->ucBssFreeQuota;
-
-	if (!prBssInfo->fgIsNetAbsent) {
-		if (!prBssInfo->tmLastPresent)
-			prBssInfo->tmLastPresent = kalGetTimeTick();
-		/* ToDo:: QM_DBG_CNT_INC */
-		QM_DBG_CNT_INC(&(prAdapter->rQM), QM_DBG_CNT_27);
-	} else {
-		if (prBssInfo->tmLastPresent) {
-			prBssInfo->u4PresentTime = kalGetTimeTick() -
-				prBssInfo->tmLastPresent;
-			prBssInfo->tmLastPresent = 0;
-		}
-		/* ToDo:: QM_DBG_CNT_INC */
-		QM_DBG_CNT_INC(&(prAdapter->rQM), QM_DBG_CNT_28);
-	}
 
 	memset(buf, 0, sizeof(buf));
 	pos = buf;
@@ -6841,11 +6806,17 @@ void qmHandleEventBssAbsencePresence(IN struct ADAPTER *prAdapter,
 			hif->TxRing[i].u4UsedCnt);
 	}
 
-	DBGLOG(QM, INFO, "NAF:B=%d,A=%d,F=%d,P=%u used=%d %s\n",
+	DBGLOG(QM, INFO, "NAF:B=%d,A=%d,F=%d used=%d %s\n",
 		prEventBssStatus->ucBssIndex, prBssInfo->fgIsNetAbsent,
-		prBssInfo->ucBssFreeQuota, prBssInfo->u4PresentTime,
-		hif->rTokenInfo.u4UsedCnt, buf);
+		prBssInfo->ucBssFreeQuota, hif->rTokenInfo.u4UsedCnt, buf);
 
+	if (!prBssInfo->fgIsNetAbsent) {
+		/* ToDo:: QM_DBG_CNT_INC */
+		QM_DBG_CNT_INC(&(prAdapter->rQM), QM_DBG_CNT_27);
+	} else {
+		/* ToDo:: QM_DBG_CNT_INC */
+		QM_DBG_CNT_INC(&(prAdapter->rQM), QM_DBG_CNT_28);
+	}
 	/* From Absent to Present */
 	if ((fgIsNetAbsentOld) && (!prBssInfo->fgIsNetAbsent)) {
 		if (HAL_IS_TX_DIRECT(prAdapter))
@@ -8808,9 +8779,6 @@ void qmHandleDelTspec(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	uint8_t ucTc = 0;
 	struct BSS_INFO *prAisBssInfo = NULL;
 
-	if (eAci >= ACI_NUM)
-		return;
-
 	if (!prStaRec || eAci == ACI_NUM || eAci == ACI_BK || !prAdapter) {
 		DBGLOG(QM, ERROR, "prSta NULL %d, eAci %d, prAdapter NULL %d\n",
 		       !prStaRec, eAci, !prAdapter);
@@ -8829,14 +8797,10 @@ void qmHandleDelTspec(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 		aisGetWMMInfo(prAdapter, prAisBssInfo->ucBssIndex));
 
 	while (prAcQueParam[eAci].ucIsACMSet &&
-			!(ucActivedTspec & BIT(eAci)) && eAci != ACI_BK
-			&& eAci < ACI_NUM) {
+			!(ucActivedTspec & BIT(eAci)) && eAci != ACI_BK) {
 		eAci = aeNextAci[eAci];
-		if (eAci < ACI_NUM)
-			ucNewUp = aucNextUP[eAci];
+		ucNewUp = aucNextUP[eAci];
 	}
-	if (eAci >= ACI_NUM)
-		return;
 	DBGLOG(QM, INFO, "new ACI %d, ACM %d, HasTs %d\n", eAci,
 	       prAcQueParam[eAci].ucIsACMSet, !!(ucActivedTspec & BIT(eAci)));
 	ucTc = aucWmmAC2TcResourceSet1[eAci];

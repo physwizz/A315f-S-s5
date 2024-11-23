@@ -1528,18 +1528,18 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 {
 	uint8_t *pucProfileIE, i = 0, j = 0, ucNewLink = FALSE;
 	uint8_t ucShortSsidOffset, ucBssParamOffset, ucTbttInfoType;
-	uint8_t ucBssidNum = 0,ucShortSsidNum = 0;
+	uint8_t ucBssidNum = 0, ucCurrentLength = 0, ucShortSsidNum = 0;
 	uint8_t ucRnrChNum, ucHasBssid = FALSE, ucScanEnable = TRUE;
 	uint8_t aucNullAddr[] = NULL_MAC_ADDR;
-	uint16_t u2TbttInfoCount, u2TbttInfoLength, u2CurrentLength = 0;
+	uint16_t u2TbttInfoCount, u2TbttInfoLength;
 	struct NEIGHBOR_AP_INFO *prNeighborAPInfo = NULL;
 	struct NEIGHBOR_AP_INFO_FIELD *prNeighborAPInfoField;
 	struct PARAM_SCAN_REQUEST_ADV *prScanRequest;
 	struct IE_SHORT_SSID_LIST *prIeShortSsidList;
 	struct BSS_DESC *prBssDescTemp = NULL;
 
-	while (u2CurrentLength < IE_LEN(pucIE)) {
-		pucProfileIE = &IE_ID_EXT(pucIE) + u2CurrentLength;
+	while (ucCurrentLength < IE_LEN(pucIE)) {
+		pucProfileIE = &IE_ID_EXT(pucIE) + ucCurrentLength;
 		prNeighborAPInfoField =
 			(struct NEIGHBOR_AP_INFO_FIELD *)pucProfileIE;
 
@@ -1554,16 +1554,16 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 		u2TbttInfoLength = (prNeighborAPInfoField->u2TbttInfoHdr &
 						TBTT_INFO_HDR_LENGTH)
 						>> TBTT_INFO_HDR_LENGTH_OFFSET;
-                ucTbttInfoType = (prNeighborAPInfoField->u2TbttInfoHdr &
-                                                TBTT_INFO_HDR_FIELD_TYPE);
+		ucTbttInfoType = (prNeighborAPInfoField->u2TbttInfoHdr &
+						TBTT_INFO_HDR_FIELD_TYPE);
 
-                /* Check Tbtt Info type is valid or not*/
-                if (ucTbttInfoType != 0) {
-                        DBGLOG(SCN, ERROR, "Invalid TBTT info type = %d\n",
-                                ucTbttInfoType);
-                        return;
-                }
-				
+		/* Check Tbtt Info type is valid or not*/
+		if (ucTbttInfoType != 0) {
+			DBGLOG(SCN, ERROR, "Invalid TBTT info type=%d,["MACSTR"]\n",
+				ucTbttInfoType,
+				MAC2STR(prBssDesc->aucBSSID));
+			return;
+		}
 		/* Check Tbtt Info length is valid or not*/
 		if (!scanValidRnrTbttInfo(u2TbttInfoLength)) {
 			DBGLOG(SCN, ERROR, "Invalid TBTT info length=%d,["MACSTR"]\n",
@@ -1578,18 +1578,18 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 			DBGLOG(SCN, INFO,
 				"RNR op class(%d) is not 6G,Len=(%d,%d),TbttInfo(%d,%d)\n",
 				prNeighborAPInfoField->ucOpClass,
-				IE_LEN(pucIE), u2CurrentLength,
+				IE_LEN(pucIE), ucCurrentLength,
 				u2TbttInfoCount, u2TbttInfoLength);
 
 			/* Calculate next NeighborAPInfo's index if exists */
-			u2CurrentLength += 4 +
+			ucCurrentLength += 4 +
 				(u2TbttInfoCount * u2TbttInfoLength);
 			continue;
 		} else {
 			/* RNR bring 6G channel, but chip not support 6G */
 			/* Calculate next NeighborAPInfo's index if exists */
 #if !(CFG_SUPPORT_WIFI_6G)
-			u2CurrentLength += 4 +
+			ucCurrentLength += 4 +
 				(u2TbttInfoCount * u2TbttInfoLength);
 			continue;
 #endif
@@ -1669,7 +1669,7 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 			if (LINK_IS_EMPTY(&prAdapter->rNeighborAPInfoList))
 				cnmMemFree(prAdapter, prNeighborAPInfo);
 			/* Calculate next NeighborAPInfo's index if exists */
-			u2CurrentLength += 4 +
+			ucCurrentLength += 4 +
 				(u2TbttInfoCount * u2TbttInfoLength);
 			continue;
 		}
@@ -1796,7 +1796,7 @@ void scanParsingRnrElement(IN struct ADAPTER *prAdapter,
 						ucBssidNum);
 		}
 		/* Calculate next NeighborAPInfo's index if exists */
-		u2CurrentLength += 4 + (u2TbttInfoCount * u2TbttInfoLength);
+		ucCurrentLength += 4 + (u2TbttInfoCount * u2TbttInfoLength);
 
 		/* Only handle RnR with BSSID */
 		if (ucHasBssid && ucScanEnable) {
@@ -1907,8 +1907,7 @@ void scanUpdateSWIPSBcn(IN struct ADAPTER *prAdapter,
 	wiphy = wlanGetWiphy();
 	wdev = wlanGetNetDev(prAdapter->prGlueInfo, ucBssIndex)->ieee80211_ptr;
 
-	bcnInfo = kalMemAlloc(sizeof(struct PARAM_SWPIS_BCN_INFO),
-			VIR_MEM_TYPE);
+	bcnInfo = kalMemAlloc(size, VIR_MEM_TYPE);
 	if (!bcnInfo) {
 		DBGLOG(AIS, ERROR, "[SWIPS] beacon report event alloc fail\n");
 		return;
@@ -1960,9 +1959,7 @@ void scanAbortBeaconRecv(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex,
 	wiphy = wlanGetWiphy();
 	wdev = wlanGetNetDev(prAdapter->prGlueInfo, ucBssIndex)->ieee80211_ptr;
 
-	bcnAbort = kalMemAlloc(sizeof(struct PARAM_SWPIS_BCN_INFO_ABORT),
-							VIR_MEM_TYPE);
-
+	bcnAbort = kalMemAlloc(size, VIR_MEM_TYPE);
 	if (!bcnAbort) {
 		DBGLOG(AIS, ERROR,
 		       "[SWIPS] beacon report abort event alloc fail\n");
@@ -1980,7 +1977,6 @@ void scanAbortBeaconRecv(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex,
 	kalMemFree(bcnAbort, VIR_MEM_TYPE, size);
 
 	/* Send stop SWIPS to FW */
-	kalMemZero(&beaconRecv, sizeof(beaconRecv));
 	prScanInfo->fgWipsBcnReport = FALSE;
 	beaconRecv.ucReportBcnEn = FALSE;
 	wlanSendSetQueryCmd(prAdapter,
@@ -3386,7 +3382,6 @@ uint32_t scanAddScanResult(IN struct ADAPTER *prAdapter,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	kalMemZero(&rSsid, sizeof(rSsid));
 	prWlanBeaconFrame = (struct WLAN_BEACON_FRAME *) prSwRfb->pvHeader;
 	COPY_MAC_ADDR(rMacAddr, prWlanBeaconFrame->aucBSSID);
 	COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen,
@@ -3708,9 +3703,7 @@ uint32_t scanProcessBeaconAndProbeResp(IN struct ADAPTER *prAdapter,
 			}
 #endif /* CFG_SUPPORT_ADHOC */
 		}
-		if ((prAisBssInfo != NULL)
-		    && EQUAL_MAC_ADDR(prBssDesc->aucBSSID,
-			prAisBssInfo->aucBSSID)
+		if (EQUAL_MAC_ADDR(prBssDesc->aucBSSID, prAisBssInfo->aucBSSID)
 		    && prAisBssInfo->eConnectionState == MEDIA_STATE_CONNECTED
 		    && (prWlanBeaconFrame->u2FrameCtrl & MASK_FRAME_TYPE) ==
 				MAC_FRAME_BEACON)

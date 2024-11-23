@@ -967,7 +967,7 @@ authSendDeauthFrame(IN struct ADAPTER *prAdapter,
 		    IN struct SW_RFB *prClassErrSwRfb, IN uint16_t u2ReasonCode,
 		    IN PFN_TX_DONE_HANDLER pfTxDoneHandler)
 {
-	uint8_t *pucReceiveAddr = NULL;
+	uint8_t *pucReceiveAddr;
 	uint8_t *pucTransmitAddr;
 	uint8_t *pucBssid = NULL;
 	struct MSDU_INFO *prMsduInfo;
@@ -1075,24 +1075,22 @@ authSendDeauthFrame(IN struct ADAPTER *prAdapter,
 
 				i4NewEntryIndex = i;
 			} else
-			if (pucReceiveAddr) {
-				if (EQUAL_MAC_ADDR
-					(pucReceiveAddr,
-					prDeauthInfo->aucRxAddr)
-					&& (!pfTxDoneHandler)) {
+			if (EQUAL_MAC_ADDR
+				(pucReceiveAddr, prDeauthInfo->aucRxAddr)
+				&& (!pfTxDoneHandler)) {
 
-					return WLAN_STATUS_FAILURE;
-				}
+				return WLAN_STATUS_FAILURE;
 			}
 		}
 
 		/* 4 <3> Update information. */
 		if (i4NewEntryIndex > 0) {
+
 			prDeauthInfo =
 			    &(prAdapter->
 			      rWifiVar.arDeauthInfo[i4NewEntryIndex]);
-			COPY_MAC_ADDR(prDeauthInfo->aucRxAddr,
-				pucReceiveAddr);
+
+			COPY_MAC_ADDR(prDeauthInfo->aucRxAddr, pucReceiveAddr);
 			prDeauthInfo->rLastSendTime = rCurrentTime;
 		} else {
 			/* NOTE(Kevin): for the case of AP mode, we may

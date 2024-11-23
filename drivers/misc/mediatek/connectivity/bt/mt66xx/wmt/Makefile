@@ -2,11 +2,6 @@
 # Bluetooth character device driver
 
 ###############################################################################
-# Necessary Check
-
-ifndef TOP
-    TOP := $(srctree)/..
-endif
 
 #ifneq ($(CFG_BT_PM_QOS_CONTROL),)
 #    ccflags-y += -D PM_QOS_CONTROL=1
@@ -52,16 +47,9 @@ ccflags-y += -I$(src)/../include/btif
 
 ###############################################################################
 
-ifneq ($(BT_PLATFORM),)
-MODULE_NAME := bt_drv_$(BT_PLATFORM)
-else
-MODULE_NAME := bt_drv
-endif
-
-obj-y += $(MODULE_NAME).o
+obj-y += bt_drv.o
 
 ccflags-y += -D CREATE_NODE_DYNAMIC=1
-ccflags-y += -DCFG_DISABLE_BT_LOG=1
 
-$(MODULE_NAME)-objs += stp_chrdev_bt.o
-$(MODULE_NAME)-objs += btmtk_dbg.o
+bt_drv-objs += stp_chrdev_bt.o
+bt_drv-objs += btmtk_dbg.o

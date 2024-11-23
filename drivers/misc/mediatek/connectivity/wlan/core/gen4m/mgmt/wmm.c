@@ -756,7 +756,7 @@ static void wmmQueryTsmResult(struct ADAPTER *prAdapter,
 		((struct ACTIVE_RM_TSM_REQ *)ulParam)->prTsmReq;
 	struct WMM_INFO *prWmmInfo =
 		aisGetWMMInfo(prAdapter, ucBssIndex);
-	struct CMD_GET_TSM_STATISTICS rGetTsmStatistics = {0};
+	struct CMD_GET_TSM_STATISTICS rGetTsmStatistics;
 
 	DBGLOG(WMM, INFO, "[%d] Query TSM statistics, tid = %d\n",
 		ucBssIndex,
@@ -823,7 +823,7 @@ static void wmmRemoveTSM(struct ADAPTER *prAdapter,
 
 	LINK_REMOVE_KNOWN_ENTRY(prActiveTsmLink, prActiveTsm);
 	if (fgNeedStop) {
-		struct CMD_SET_TSM_STATISTICS_REQUEST rTsmStatistics = {0};
+		struct CMD_SET_TSM_STATISTICS_REQUEST rTsmStatistics;
 		struct STA_RECORD *prStaRec = NULL;
 		struct BSS_INFO *prAisBssInfo;
 

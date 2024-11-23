@@ -1025,6 +1025,7 @@ static netdev_tx_t bowHardStartXmit(IN struct sk_buff *prSkb,
 
 	if (kalHardStartXmit(prSkb, prDev, prGlueInfo, ucBssIndex) == WLAN_STATUS_SUCCESS) {
 		/* Successfully enqueue to Tx queue */
+		/* Successfully enqueue to Tx queue */
 	}
 
 	/* For Linux, we'll always return OK FLAG, because we'll free this skb by ourself */

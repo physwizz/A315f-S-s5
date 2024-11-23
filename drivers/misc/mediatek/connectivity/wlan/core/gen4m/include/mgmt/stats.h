@@ -40,10 +40,6 @@
  *            D A T A   T Y P E S
  *******************************************************************************
  */
-enum EVENT_TYPE {
-	EVENT_RX,
-	EVENT_TX,
-};
 
 enum ENUM_STATS_TX_TLV_TAG_ID_T {
 	STATS_TX_TAG_QUEUE          = 0,

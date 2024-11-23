@@ -1043,12 +1043,12 @@ u_int8_t aisFsmStateInit_RetryJOIN(IN struct ADAPTER *prAdapter,
 	struct AIS_FSM_INFO *prAisFsmInfo;
 	struct MSG_SAA_FSM_START *prJoinReqMsg;
 	struct CONNECTION_SETTINGS *prConnSettings;
-        struct GL_WPA_INFO *prWpaInfo;
-        DEBUGFUNC("aisFsmStateInit_RetryJOIN()");
+
+	DEBUGFUNC("aisFsmStateInit_RetryJOIN()");
 
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
-    prWpaInfo = aisGetWpaInfo(prAdapter, ucBssIndex);
+
 	/* Retry other AuthType if possible */
 	if (!prAisFsmInfo->ucAvailableAuthTypes)
 		return FALSE;
@@ -1066,20 +1066,6 @@ u_int8_t aisFsmStateInit_RetryJOIN(IN struct ADAPTER *prAdapter,
 		prAisFsmInfo->ucAvailableAuthTypes = 0;
 		return FALSE;
 	}
-#if CFG_SUPPORT_802_11W
-	if (prStaRec->u2StatusCode ==
-			STATUS_CODE_ROBUST_MGMT_FRAME_POLICY_VIOLATION) {
-		if (kalGetRsnIeMfpCap(prAdapter->prGlueInfo, ucBssIndex) ==
-				RSN_AUTH_MFP_REQUIRED)
-			prWpaInfo->ucRSNMfpCap = RSN_AUTH_MFP_OPTIONAL;
-		else
-			prWpaInfo->ucRSNMfpCap = RSN_AUTH_MFP_REQUIRED;
-
-		DBGLOG(AIS, INFO,
-			"RETRY JOIN INIT: Retry Authentication with ucRSNMfpCap == %d.\n",
-			prWpaInfo->ucRSNMfpCap);
-	}
-#endif
 
 	if (prConnSettings->rRsnInfo.au4AuthKeyMgtSuite[0]
 		== WLAN_AKM_SUITE_SAE &&
@@ -1493,7 +1479,7 @@ void aisFsmNotifyManageChannelList(
 	struct CONNECTION_SETTINGS *conn;
 	uint8_t i = 0;
 	uint8_t essChnlNum = 0;
-	uint32_t size = 0;
+	uint8_t size = 0;
 
 	wiphy = prAdapter->prGlueInfo->prDevHandler->ieee80211_ptr->wiphy;
 	wdev = wlanGetNetDev(prAdapter->prGlueInfo, ucBssIndex)->ieee80211_ptr;
@@ -3488,14 +3474,6 @@ uint8_t aisHandleJoinFailure(IN struct ADAPTER *prAdapter,
 		 * , or AP block STA
 		 */
 		eNextState = AIS_STATE_JOIN_FAILURE;
-#if CFG_TC10_FEATURE
-				} else if (prStaRec->u2ReasonCode ==
-						REASON_CODE_PREV_AUTH_INVALID) {
-					/* Receive DEAUTH instead of ASSOC
-					 * RESP, stop JOIN
-					 */
-					eNextState = AIS_STATE_JOIN_FAILURE;
-#endif
 	} else {
 		/* 4.b send reconnect request */
 		aisFsmInsertRequest(prAdapter,
@@ -4360,7 +4338,7 @@ void aisUpdateBssInfoForJOIN(IN struct ADAPTER *prAdapter,
 	struct BSS_DESC *prBssDesc;
 	uint16_t u2IELength;
 	uint8_t *pucIE;
-	struct PARAM_SSID rSsid = {0};
+	struct PARAM_SSID rSsid;
 	uint8_t ucBssIndex = 0;
 
 	DEBUGFUNC("aisUpdateBssInfoForJOIN()");
@@ -5514,16 +5492,7 @@ void aisFsmRunEventChGrant(IN struct ADAPTER *prAdapter,
 	/* 1. free message */
 	cnmMemFree(prAdapter, prMsgHdr);
 
-	if (prAisBssInfo->prStaRecOfAP &&
-		prAisBssInfo->fgIsAisSwitchingChnl == TRUE) {
-
-		nicUpdateBss(prAdapter, ucBssIndex);
-
-		prAisBssInfo->fgIsAisSwitchingChnl = FALSE;
-
-		prAisFsmInfo->fgIsChannelGranted = TRUE;
-		aisFsmReleaseCh(prAdapter, ucBssIndex);
-	} else if (prAisFsmInfo->eCurrentState == AIS_STATE_REQ_CHANNEL_JOIN
+	if (prAisFsmInfo->eCurrentState == AIS_STATE_REQ_CHANNEL_JOIN
 	    && prAisFsmInfo->ucSeqNumOfChReq == ucTokenID) {
 		/* 2. channel privilege has been approved */
 		prAisFsmInfo->u4ChGrantedInterval = u4GrantInterval;
@@ -5691,7 +5660,7 @@ void aisBssBeaconTimeout_impl(IN struct ADAPTER *prAdapter,
 		prAisBtoInfo->ucDisconnectReason = ucDisconnectReason;
 
 		if (roam && join) {
-			struct PARAM_SSID rSsid = {0};
+			struct PARAM_SSID rSsid;
 
 			DBGLOG(AIS, EVENT,
 				"Postpone aisBssBeaconTimeout, roam=%d, join=%d",
@@ -6636,8 +6605,6 @@ void aisFsmRunEventNchoActionFrameTx(IN struct ADAPTER *prAdapter,
 
 	do {
 		prMgmtTxMsg = (struct MSG_MGMT_TX_REQUEST *)prMsgHdr;
-		if (prMgmtTxMsg == NULL)
-			break;
 
 		ucBssIndex = prMgmtTxMsg->ucBssIdx;
 
@@ -6964,24 +6931,27 @@ void aisFuncValidateRxActionFrame(IN struct ADAPTER *prAdapter,
 
 	DEBUGFUNC("aisFuncValidateRxActionFrame");
 
-	if (prSwRfb->prStaRec)
-		ucBssIndex = prSwRfb->prStaRec->ucBssIndex;
+	do {
+		if (prSwRfb->prStaRec)
+			ucBssIndex = prSwRfb->prStaRec->ucBssIndex;
 
-	/* CFG_SUPPORT_NAN and CFG_ENABLE_WIFI_DIRECT
-	 * consider to bypass AIS RxActionFrame
-	 */
-	if (!IS_BSS_INDEX_AIS(prAdapter, ucBssIndex)) {
-		DBGLOG(AIS, LOUD,
-			"Use default, invalid index = %d\n", ucBssIndex);
-		return;
-	}
+		prAisFsmInfo
+			= aisGetAisFsmInfo(prAdapter, ucBssIndex);
 
-	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
+		if (1
+		/* prAisFsmInfo->u4AisPacketFilter &
+		 * PARAM_PACKET_FILTER_ACTION_FRAME
+		 */
+		) {
+			/* Leave the action frame to wpa_supplicant. */
+			kalIndicateRxMgmtFrame(
+				prAdapter,
+				prAdapter->prGlueInfo,
+				prSwRfb,
+				ucBssIndex);
+		}
 
-	/* All action frames indicate to wpa_supplicant */
-	/* Leave the action frame to wpa_supplicant. */
-	kalIndicateRxMgmtFrame(prAdapter, prAdapter->prGlueInfo,
-		prSwRfb, ucBssIndex);
+	} while (FALSE);
 
 	return;
 
@@ -7958,7 +7928,7 @@ void aisRetrieveTarget(IN struct ADAPTER *prAdapter,
 				IN uint8_t ucBssIndex) {
 	struct AIS_FSM_INFO *prAisFsmInfo;
 	struct BSS_INFO *prAisBssInfo;
-	struct PARAM_SSID rSsid = {0};
+	struct PARAM_SSID rSsid;
 
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
@@ -8077,122 +8047,3 @@ u_int8_t clearAxBlocklist(IN struct ADAPTER *prAdapter,
 	}
 	return TRUE;
 }
-
-/*----------------------------------------------------------------------------*/
-/*!
- * @brief This function will request new channel once reciving new beacon
- *        after CSA.
- *
- * @param[in] prAisFsmInfo              Pointer to AIS_FSM_INFO
- * @param[in] prBss                     Pointer to AIS BSS_INFO_T
- * @param[in] ucChTokenId               Pointer to token ID
- *
- * @return (none)
- */
-/*----------------------------------------------------------------------------*/
-void aisReqJoinChPrivilegeForCSA(struct ADAPTER *prAdapter,
-				struct AIS_FSM_INFO *prAisFsmInfo,
-				struct BSS_INFO *prBss,
-				uint8_t *ucChTokenId)
-{
-		struct MSG_CH_REQ *prMsgChReq = NULL;
-
-		/* stop Tx due to we need to connect a new AP. even the
-		 ** new AP is operating on the same channel with current
-		 ** , we still need to stop Tx, because firmware should
-		 ** ensure all mgmt and dhcp packets are Tx in time,
-		 ** and may cause normal data packets was queued and
-		 ** eventually flushed in firmware
-		 */
-		if (prBss->prStaRecOfAP &&
-		    prBss->ucReasonOfDisconnect !=
-		    DISCONNECT_REASON_CODE_REASSOCIATION)
-			prBss->prStaRecOfAP->fgIsTxAllowed = FALSE;
-
-		/* send message to CNM for acquiring channel */
-		prMsgChReq = (struct MSG_CH_REQ *)cnmMemAlloc(prAdapter,
-				RAM_TYPE_MSG,
-				sizeof(struct MSG_CH_REQ));
-		if (!prMsgChReq) {
-			DBGLOG(AIS, ERROR, "Can't indicate CNM\n");
-			return;
-		}
-		kalMemZero(prMsgChReq, sizeof(struct MSG_CH_REQ));
-
-		prMsgChReq->rMsgHdr.eMsgId = MID_MNY_CNM_CH_REQ;
-		prMsgChReq->ucBssIndex = prBss->ucBssIndex;
-		prMsgChReq->ucTokenID = ++prAisFsmInfo->ucSeqNumOfChReq;
-		prMsgChReq->eReqType = CH_REQ_TYPE_JOIN;
-		prMsgChReq->u4MaxInterval = AIS_JOIN_CH_REQUEST_INTERVAL;
-		prMsgChReq->ucPrimaryChannel =
-		    prAisFsmInfo->prTargetBssDesc->ucChannelNum;
-		prMsgChReq->eRfSco = prAisFsmInfo->prTargetBssDesc->eSco;
-		prMsgChReq->eRfBand = prAisFsmInfo->prTargetBssDesc->eBand;
-#if CFG_SUPPORT_DBDC
-		prMsgChReq->eDBDCBand = ENUM_BAND_AUTO;
-#endif /*CFG_SUPPORT_DBDC */
-		prMsgChReq->eRfChannelWidth = prBss->ucVhtChannelWidth;
-		prMsgChReq->ucRfCenterFreqSeg1 = prBss->ucVhtChannelFrequencyS1;
-		prMsgChReq->ucRfCenterFreqSeg2 = prBss->ucVhtChannelFrequencyS2;
-
-		mboxSendMsg(prAdapter, MBOX_ID_0,
-				(struct MSG_HDR *)prMsgChReq,
-				MSG_SEND_METHOD_BUF);
-}				/* end of aisReqJoinChPrivilegeForCSA() */
-
-/*----------------------------------------------------------------------------*/
-/*!
- * @brief This function will update the contain of BSS_INFO_T and STA_RECORD_T
- *        for AIS network once reciving new beacon after CSA.
- *
- * @param[in] prBssInfo              Pointer to AIS BSS_INFO_T
- *
- * @return (none)
- */
-/*----------------------------------------------------------------------------*/
-void aisUpdateParamsForCSA(struct ADAPTER *prAdapter,
-				struct BSS_INFO *prBssInfo)
-{
-	struct STA_RECORD *prStaRec;
-	struct BSS_DESC *prBssDesc;
-
-	prStaRec = prBssInfo->prStaRecOfAP;
-	prBssDesc = scanSearchBssDescByBssid(prAdapter, prStaRec->aucMacAddr);
-
-	if (!prBssDesc) {
-		DBGLOG(AIS, ERROR,
-			"Can't find " MACSTR "\n",
-			MAC2STR(prStaRec->aucMacAddr));
-		return;
-	}
-
-	/* <1> Update information from BSS_DESC to current P_STA_RECORD */
-	bssUpdateStaRecFromBssDesc(prAdapter, prBssDesc, prStaRec);
-
-	/* <2> Decide if this BSS 20/40M bandwidth is allowed */
-	if ((prAdapter->rWifiVar.ucAvailablePhyTypeSet &
-	     PHY_TYPE_SET_802_11N) &&
-	    (prStaRec->ucPhyTypeSet & PHY_TYPE_SET_802_11N)) {
-		prBssInfo->fgAssoc40mBwAllowed =
-			cnmBss40mBwPermitted(prAdapter, prStaRec->ucIndex);
-	} else {
-		prBssInfo->fgAssoc40mBwAllowed = FALSE;
-	}
-	DBGLOG(RLM, TRACE, "STA 40mAllowed=%d\n",
-	       prBssInfo->fgAssoc40mBwAllowed);
-
-	/* <3> Setup PHY Attributes and Basic Rate Set/Operational
-	 * Rate Set
-	 */
-	prBssInfo->ucPhyTypeSet = prStaRec->ucDesiredPhyTypeSet;
-	prBssInfo->ucNonHTBasicPhyType = prStaRec->ucNonHTBasicPhyType;
-	prBssInfo->u2OperationalRateSet = prStaRec->u2OperationalRateSet;
-	prBssInfo->u2BSSBasicRateSet = prStaRec->u2BSSBasicRateSet;
-
-	nicTxUpdateBssDefaultRate(prBssInfo);
-	nicTxUpdateStaRecDefaultRate(prAdapter, prStaRec);
-	cnmStaSendUpdateCmd(prAdapter, prStaRec, NULL, FALSE);
-
-	cnmDumpStaRec(prAdapter, prStaRec->ucIndex);
-}				/* end of aisUpdateParamsForCSA() */
-

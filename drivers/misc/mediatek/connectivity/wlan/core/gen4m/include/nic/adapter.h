@@ -420,8 +420,6 @@ struct BSS_INFO {
 	 */
 	u_int8_t fgIsQBSS;
 	u_int8_t fgIsNetAbsent;	/* TRUE: BSS is absent, FALSE: BSS is present */
-	OS_SYSTIME tmLastPresent;
-	uint32_t u4PresentTime; /* in ms */
 
 	/* Stop/Start Subqueue threshold */
 	uint32_t u4NetifStopTh;
@@ -661,7 +659,6 @@ struct BSS_INFO {
 	struct SWITCH_CH_AND_BAND_PARAMS CSAParams;
 	uint8_t fgHasStopTx;
 	uint8_t ucVhtChannelWidthBeforeCsa;
-	uint8_t fgIsAisSwitchingChnl;
 #endif
 
 #ifdef CFG_MSCS_SUPPORT
@@ -798,12 +795,13 @@ struct _NAN_SPECIFIC_BSS_INFO_T {
 	uint8_t aucClusterId[MAC_ADDR_LEN];
 	struct _NAN_ATTR_MASTER_INDICATION_T rMasterIndAttr;
 
-	/* struct NAN_CRB_NEGO_CTRL_T rNanSchNegoCtrl;
-	 * struct NAN_PEER_SCHEDULE_RECORD_T
-	 * arNanPeerSchedRecord[NAN_MAX_CONN_CFG];
-	 * struct NAN_TIMELINE_MGMT_T rNanTimelineMgmt;
-	 * struct NAN_SCHEDULER_T rNanScheduler;
-	 */
+	/*
+ *	struct NAN_CRB_NEGO_CTRL_T rNanSchNegoCtrl;
+ *	struct NAN_PEER_SCHEDULE_RECORD_T
+ *			 arNanPeerSchedRecord[NAN_MAX_CONN_CFG];
+ *	struct NAN_TIMELINE_MGMT_T rNanTimelineMgmt;
+ *	struct NAN_SCHEDULER_T rNanScheduler;
+ */
 };
 #endif
 
@@ -1063,8 +1061,6 @@ struct WIFI_VAR {
 	/* Otherwise align cfg80211 */
 	uint8_t ucApChnlDefFromCfg;
 
-	uint8_t ucForceBw;
-
 	/*
 	 * According TGn/TGac 4.2.44, AP should not connect
 	 * with TKIP client with HT/VHT capabilities. We leave
@@ -1119,6 +1115,7 @@ struct WIFI_VAR {
 	uint8_t ucVhtIeIn2g;
 #endif
 	uint8_t fgCsaInProgress;
+	uint8_t fgCsaBlockScan;
 	uint8_t ucChannelSwitchMode;
 	uint8_t ucNewChannelNumber;
 	uint8_t ucChannelSwitchCount;
@@ -1198,18 +1195,8 @@ struct WIFI_VAR {
 
 	uint32_t u4PerfMonUpdatePeriod;
 	uint32_t u4PerfMonTpTh[PERF_MON_TP_MAX_THRESHOLD];
-
-#if CFG_SUPPORT_MCC_BOOST_CPU
-	uint32_t u4MccBoostTputLvTh;
-	uint32_t u4MccBoostPresentTime;
-	uint32_t u4MccBoostForAllTputLvTh;
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-	uint32_t u4BoostCpuTh;
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-	uint32_t u4BoostLittleCpuTh;
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-	uint32_t u4CpuBoostMinFreq;
-	uint8_t fgIsBoostCpuThAdjustable;
+	uint32_t	u4BoostCpuTh;
+	u_int8_t	fgIsBoostCpuThAdjustable;
 
 	uint32_t u4PerfMonPendingTh;
 	uint32_t u4PerfMonUsedTh;
@@ -1242,21 +1229,6 @@ struct WIFI_VAR {
 #if CFG_SUPPORT_PERF_IND
 	u_int8_t fgPerfIndicatorEn;
 #endif
-
-	u_int8_t fgRxIcvErrDbg;
-	union {
-		uint32_t u4TxRxDescDump;
-		struct {
-			uint32_t fgDumpTxD: 1;        /* 0x01 */
-			uint32_t fgDumpTxDmad: 1;     /* 0x02 */
-			uint32_t fgDumpTxP: 1;        /* 0x04 */
-			uint32_t fgDumpReserved: 1;
-
-			uint32_t fgDumpRxD: 1;        /* 0x10 */
-			uint32_t fgDumpRxDmad: 1;     /* 0x20 */
-			uint32_t fgDumpRxDsegment: 1; /* 0x40 */
-		};
-	};
 
 	/* 11K */
 	struct RADIO_MEASUREMENT_REQ_PARAMS rRmReqParams[KAL_AIS_NUM];
@@ -1341,21 +1313,12 @@ struct WIFI_VAR {
 	unsigned char fgEnableNDPE;
 	uint8_t ucDftNdlQosQuotaVal;    /* Unit: NAN slot */
 	uint16_t u2DftNdlQosLatencyVal; /* Unit: NAN slot */
+	uint8_t ucNanBandwidth;
 	uint8_t fgEnNanVHT;
 	uint8_t ucNanFtmBw;
 	uint8_t ucNanDiscBcnInterval;
 	uint8_t ucNanCommittedDw;
 	unsigned char fgNoPmf;
-	uint8_t fgNanIsSigma;
-	uint8_t ucNan2gBandwidth;
-	uint8_t ucNan5gBandwidth;
-	uint8_t ucNdlFlowCtrlVer;
-	uint8_t ucNanMaxNdpSession;
-	uint8_t ucNanMacAddrOverride;
-	uint8_t aucNanMacAddrStr[WLAN_CFG_VALUE_LEN_MAX];
-	unsigned char fgEnableRandNdpid;
-	uint32_t u4NanSendPacketGuardTime;
-	uint8_t fgNanUnrollInstallTk;
 #endif
 
 #if CFG_SUPPORT_TPENHANCE_MODE
@@ -1365,9 +1328,6 @@ struct WIFI_VAR {
 	int8_t cTpEnhanceRSSI;
 	uint32_t u4TpEnhanceThreshold;
 #endif /* CFG_SUPPORT_TPENHANCE_MODE */
-
-	/* rx rate filter */
-	uint32_t u4RxRateProtoFilterMask;
 
 #define LATENCY_STATS_MAX_SLOTS 5
 #if CFG_SUPPORT_TX_LATENCY_STATS
@@ -1850,15 +1810,12 @@ struct ADAPTER {
 	unsigned char fgIsNANfromHAL;
 	bool fgIsNanSendRequestToCnm;
 	uint8_t ucNanReqTokenId;
-	struct _NAN_PUBLISH_INFO_T rPublishInfo;
-	struct _NAN_SUBSCRIBE_INFO_T rSubscribeInfo;
 
 	/* Container for Data Engine */
 	struct _NAN_DATA_PATH_INFO_T rDataPathInfo;
 
 	/* Container for Ranging Engine */
 	struct _NAN_RANGING_INFO_T rRangingInfo;
-	struct ICMPV6_NS_NA_LOG nan_icmp_log;
 #endif
 
 #if CFG_ENABLE_WIFI_DIRECT
@@ -2058,12 +2015,6 @@ struct ADAPTER {
 	uint8_t ucSmartGearWfPathSupport;
 
 	struct PERF_MONITOR rPerMonitor;
-
-#if CFG_SUPPORT_MCC_BOOST_CPU
-	u_int8_t fgMccBoost;
-	u_int8_t fgMccStateChange;
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-
 	struct ICAP_INFO_T rIcapInfo;
 	struct RECAL_INFO_T rReCalInfo;
 
@@ -2229,8 +2180,6 @@ struct ADAPTER {
 	bool fgIsNeedAvoidDesenseFreq;
 #endif
 
-	uint8_t ucCnmTokenID;
-
 #if CFG_TC10_FEATURE
 	struct STA_RECORD rSapLastStaRec;
 	u_int8_t fgSapLastStaRecSet;
@@ -2271,7 +2220,7 @@ struct ADAPTER {
 #define IS_BSS_ACTIVE(_prBssInfo)     ((_prBssInfo)->fgIsNetActive)
 
 #define IS_BSS_AIS(_prBssInfo) \
-	((_prBssInfo) && (_prBssInfo)->eNetworkType == NETWORK_TYPE_AIS)
+	((_prBssInfo)->eNetworkType == NETWORK_TYPE_AIS)
 
 #define IS_BSS_INDEX_AIS(_prAdapter, _BssIndex) \
 	(_BssIndex < KAL_AIS_NUM)

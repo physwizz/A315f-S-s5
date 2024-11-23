@@ -422,60 +422,6 @@ void nicRxFillRFB(IN struct ADAPTER *prAdapter,
 			__func__);
 }
 
-/**
- * nicRxProcessRxv() - function to parse RXV for rate information
- * @prAdapter: pointer to adapter
- * @prSwRfb: RFB of received frame
- *
- * If parsed data will be saved in
- * prAdapter->arStaRec[prSwRfb->ucStaRecIdx].u4RxVector[*], then can be used
- * for calling wlanGetRxRate().
- */
-static void nicRxProcessRxv(IN struct ADAPTER *prAdapter,
-		IN struct SW_RFB *prSwRfb)
-{
-#if (CFG_SUPPORT_MSP == 1)
-	struct mt66xx_chip_info *prChipInfo;
-	void *pvPacket;
-	uint8_t *pucEthDestAddr;
-	struct WIFI_VAR *prWifiVar;
-
-	prChipInfo = prAdapter->chip_info;
-
-	if (!prChipInfo || !prChipInfo->asicRxProcessRxvforMSP)
-		return;
-
-	/* ignore non-data frame */
-	if (!prSwRfb->fgDataFrame)
-		return;
-
-	pucEthDestAddr = prSwRfb->pvHeader;
-	if (!pucEthDestAddr)
-		return;
-
-	pvPacket = prSwRfb->pvPacket;
-	if (!pvPacket)
-		return;
-
-	/* Ignore BMC pkt */
-	if (prSwRfb->fgIsBC || prSwRfb->fgIsMC ||
-		IS_BMCAST_MAC_ADDR(pucEthDestAddr))
-		return;
-
-	/* Ignore filtered pkt, such as ARP */
-	prWifiVar = &prAdapter->rWifiVar;
-	if (GLUE_IS_PKT_FLAG_SET(pvPacket) &
-		prWifiVar->u4RxRateProtoFilterMask) {
-		DBGLOG(RX, TEMP, "u4RxRateProtoFilterMask:%u, proto:%u\n",
-			prWifiVar->u4RxRateProtoFilterMask,
-			GLUE_IS_PKT_FLAG_SET(pvPacket));
-		return;
-	}
-
-	prChipInfo->asicRxProcessRxvforMSP(prAdapter, prSwRfb);
-#endif /* CFG_SUPPORT_MSP == 1 */
-}
-
 #if CFG_TCP_IP_CHKSUM_OFFLOAD || CFG_TCP_IP_CHKSUM_OFFLOAD_NDIS_60
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1896,10 +1842,9 @@ void nicRxPerfIndProcessRXV(IN struct ADAPTER *prAdapter,
 	struct mt66xx_chip_info *prChipInfo;
 
 	prChipInfo = prAdapter->chip_info;
-	if (!prChipInfo || !prChipInfo->asicRxPerfIndProcessRXV)
-		return;
-
-	prChipInfo->asicRxPerfIndProcessRXV(prAdapter, prSwRfb, ucBssIndex);
+	if (prChipInfo->asicRxPerfIndProcessRXV)
+		prChipInfo->asicRxPerfIndProcessRXV(
+			prAdapter, prSwRfb, ucBssIndex);
 	/* else { */
 		/* print too much, remove for system perfomance */
 		/* DBGLOG(RX, ERROR, "%s: no asicRxPerfIndProcessRXV ??\n", */
@@ -2069,13 +2014,12 @@ void nicRxIndicatePackets(IN struct ADAPTER *prAdapter,
 	prRetSwRfb = prSwRfbListHead;
 
 	while (prRetSwRfb) {
-		/**
-		 * Collect RXV information,
-		 * prAdapter->arStaRec[i].u4RxVector[*] updated.
-		 * wlanGetRxRate() can get new rate values
-		 */
-		nicRxProcessRxv(prAdapter, prRetSwRfb);
-
+#if (CFG_SUPPORT_MSP == 1)
+		/* collect RXV information */
+		if (prChipInfo->asicRxProcessRxvforMSP)
+			prChipInfo->asicRxProcessRxvforMSP(
+				prAdapter, prRetSwRfb);
+#endif /* CFG_SUPPORT_MSP == 1 */
 /* fos_change begin */
 #if CFG_SUPPORT_STAT_STATISTICS
 		nicRxGetNoiseLevelAndLastRate(prAdapter, prRetSwRfb);
@@ -4735,8 +4679,8 @@ uint8_t nicIsActionFrameValid(IN struct SW_RFB *prSwRfb)
 }
 
 #if CFG_SUPPORT_NAN
-uint32_t nicRxNANPMFCheck(struct ADAPTER *prAdapter,
-		 struct BSS_INFO *prBssInfo, struct SW_RFB *prSwRfb)
+uint32_t nicRxNANPMFCheck(IN struct ADAPTER *prAdapter,
+		 IN struct BSS_INFO *prBssInfo, IN struct SW_RFB *prSwRfb)
 {
 	struct _NAN_ACTION_FRAME_T *prActionFrame = NULL;
 
@@ -4754,20 +4698,9 @@ uint32_t nicRxNANPMFCheck(struct ADAPTER *prAdapter,
 		if (prBssInfo->eNetworkType == NETWORK_TYPE_NAN) {
 			if (prSwRfb->prStaRec->fgIsTxKeyReady == TRUE) {
 				/* NAN Todo: Not HW_MAC_RX_DESC here */
-#if (CFG_SUPPORT_CONNAC3X == 1)
-				if (
-				HAL_MAC_CONNAC3X_RX_STATUS_IS_CIPHER_MISMATCH(
-				(struct HW_MAC_CONNAC3X_RX_DESC *)prSwRfb
-						->prRxStatus) == TRUE) {
-#elif (CFG_SUPPORT_CONNAC2X == 1)
-				if (HAL_MAC_CONNAC2X_RX_STATUS_IS_CIPHER_MISMATCH(
-					(struct HW_MAC_CONNAC2X_RX_DESC *)prSwRfb
-							->prRxStatus) == TRUE) {
-#else
 				if (HAL_RX_STATUS_IS_CIPHER_MISMATCH(
-					(struct HW_MAC_RX_DESC *)prSwRfb
-							->prRxStatus) == TRUE) {
-#endif
+					    (struct HW_MAC_RX_DESC *)prSwRfb
+						    ->prRxStatus) == TRUE) {
 					DBGLOG(NAN, INFO,
 					       "[PMF] Rx NON-PROTECT NAF, StaIdx:%d, Wtbl:%d\n",
 					       prSwRfb->prStaRec->ucIndex,
@@ -4789,8 +4722,8 @@ uint32_t nicRxNANPMFCheck(struct ADAPTER *prAdapter,
 	return WLAN_STATUS_SUCCESS;
 }
 
-uint32_t nicRxProcessNanPubActionFrame(struct ADAPTER *prAdapter,
-			      struct SW_RFB *prSwRfb)
+uint32_t nicRxProcessNanPubActionFrame(IN struct ADAPTER *prAdapter,
+			      IN struct SW_RFB *prSwRfb)
 {
 	uint32_t rWlanStatus = WLAN_STATUS_SUCCESS;
 	struct _NAN_ACTION_FRAME_T *prActionFrame = NULL;
@@ -5126,10 +5059,6 @@ uint32_t nicRxProcessActionFrame(IN struct ADAPTER *
 
 	case CATEGORY_PROTECTED_DUAL_OF_PUBLIC_ACTION:
 		aisFuncValidateRxActionFrame(prAdapter, prSwRfb);
-#if CFG_SUPPORT_NAN
-		if (prAdapter->fgIsNANRegistered)
-			nicRxProcessNanPubActionFrame(prAdapter, prSwRfb);
-#endif
 		break;
 
 	case CATEGORY_ROBUST_AV_STREAMING_ACTION:

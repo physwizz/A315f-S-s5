@@ -208,16 +208,5 @@ void heRlmReqGenerateHe6gBandCapIE(
 	struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo);
 #endif
-
-#if (CFG_SUPPORT_NAN == 1)
-uint32_t heRlmFillNANHECapIE(struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo, uint8_t *pOutBuf);
-
-uint32_t heRlmFillNANHeOpIE(
-	struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	uint8_t *pOutBuf);
-#endif
-
 #endif /* CFG_SUPPORT_802_11AX == 1 */
 #endif /* !_HE_RLM_H */

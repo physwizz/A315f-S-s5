@@ -12,12 +12,6 @@
 ###############################################################################
 # Necessary Check
 ifeq ($(CONFIG_MTK_GPS_SUPPORT), y)
-
-ifeq ($(AUTOCONF_H),)
-    $(error AUTOCONF_H is not defined)
-endif
-
-ccflags-y += -imacros $(AUTOCONF_H)
 ifndef TOP
     TOP := $(srctree)/..
 endif
@@ -28,6 +22,9 @@ endif
 # Force build fail on modpost warning
 KBUILD_MODPOST_FAIL_ON_WARNINGS := y
 ###############################################################################
+
+# only WMT align this design flow, but gps use this also.
+#ccflags-y += -D MTK_WCN_REMOVE_KERNEL_MODULE
 
 ifeq ($(CONFIG_ARM64), y)
     ccflags-y += -D CONFIG_MTK_WCN_ARM64
@@ -58,7 +55,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/connectivity/common
 ###############################################################################
 
 MODULE_NAME := gps_drv_stp
-obj-m += $(MODULE_NAME).o
+obj-y += $(MODULE_NAME).o
 
 GPS_DRV_CONTROL_LNA := y
 GPS_SRC_FOLDER := $(TOP)/gps/gps_stp

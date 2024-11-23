@@ -108,11 +108,6 @@
 #define MTK_WCN_HIF_AXI			0
 #endif
 
-
-
-/* Android build-in driver switch, Mike 2016/11/11*/
-#define CFG_BUILT_IN_DRIVER         1 /* Rissu: Force to one */
-
 /* Mike 2016/09/01 ALPS update K3.18 80211_disconnect to K4.4 version*/
 /* work around for any alps K3.18 platform*/
 #ifndef CFG_WPS_DISCONNECT
@@ -329,8 +324,6 @@
 #define CFG_SUPPORT_RX_GRO                      1
 #if CFG_SUPPORT_RX_GRO
 #define CFG_SUPPORT_SKIP_RX_GRO_FOR_TC          1
-#else
-#define CFG_SUPPORT_SKIP_RX_GRO_FOR_TC          0
 #endif /* CFG_SUPPORT_RX_GRO */
 
 /* 2 Flags for Driver Parameters */
@@ -952,10 +945,6 @@
 #define CFG_SUPPORT_OCE				1
 
 #define CFG_SUPPORT_SUPPLICANT_SME              0
-
-#ifndef CFG_SUPPORT_CRYPTO
-#define CFG_SUPPORT_CRYPTO			0
-#endif
 
 #if (CFG_SUPPORT_802_11K == 1) && (CFG_SUPPORT_SUPPLICANT_SME == 1)
 /* Enable to do beacon reports by supplicant.
@@ -1638,24 +1627,14 @@
 #endif
 
 #if (CFG_SUPPORT_NAN == 1)
-#define CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL 2
+#define CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL 1
 #define CFG_SUPPORT_NAN_CARRIER_ON_INIT 1
-#define CFG_SUPPORT_NAN_DBDC 0
 #define CFG_NAN_BSS_SEPARATE_SEC_ROLE 0
 #define CFG_NAN_PMF_PATCH 1 /* special handle for peer send PMF w/ NMI */
 #define CFG_NAN_ACTION_FRAME_ADDR                                              \
 	1 /* 0: use NDI if available, 1: always use NMI */
 
 #define CFG_SUPPORT_NAN_SHOULD_REMOVE_FOR_NO_TYPEDEF 1
-
-/* NAN scheduler version
- * 0: AIS use last 8 slots
- * 1: AIS+NAN SCC, or AIS use 0x00FF00FF for MCC
- */
-#define CFG_NAN_SCHEDULER_VERSION  1
-
-#define CFG_SUPPORT_NAN_NDP_DUAL_BAND 1
-
 #else
 #define CFG_SUPPORT_NAN_SHOULD_REMOVE_FOR_NO_TYPEDEF 0
 #endif
@@ -1700,23 +1679,10 @@
  *------------------------------------------------------------------------------
  */
 #if CFG_MTK_ANDROID_WMT
-#define CFG_SUPPORT_SA_LOG 1
+#define CFG_SUPPORT_SA_LOG /*1*/ 0 /* Disable Standalone Log support, Rissu 2024/22/11 */
 #else
 #define CFG_SUPPORT_SA_LOG 0
 #endif
-
-#define CFG_SUPPORT_LITTLE_CPU_BOOST 0
-
-#define CFG_SUPPORT_MCC_BOOST_CPU 1
-#if CFG_SUPPORT_MCC_BOOST_CPU
-#define MCC_BOOST_LEVEL 1
-#define MCC_BOOST_MIN_TIME 70
-#define MCC_BOOST_FOR_ALL_LEVEL 3
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
-
-#define CFG_SUPPORT_ANDROID_DUAL_STA 0
-
-#define CFG_SUPPORT_LIMITED_PKT_PID  1
 
 /*******************************************************************************
  *                             D A T A   T Y P E S

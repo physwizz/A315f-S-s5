@@ -1082,7 +1082,6 @@ struct MEM_TRACK {
 	struct LINK_ENTRY rLinkEntry;
 	uint16_t u2CmdIdAndWhere;
 	uint8_t *pucFileAndLine;
-	uint8_t aucData[];
 };
 #endif
 /*******************************************************************************

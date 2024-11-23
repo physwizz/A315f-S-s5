@@ -1239,7 +1239,6 @@ static INT32 consys_dedicated_log_path_init(struct platform_device *pdev)
 
 	connsys_dedicated_log_path_apsoc_init(
 		gConEmiPhyBase, &connsys_fw_log_parameter, &irq_config);
-
 	return 0;
 }
 

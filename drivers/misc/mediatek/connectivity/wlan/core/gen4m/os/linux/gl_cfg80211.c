@@ -529,7 +529,7 @@ static uint32_t wlanGetTxRateFromLinkStats(
 	struct _STATS_LLS_TX_RATE_INFO targetRateInfo;
 	struct HAL_LLS_FULL_REPORT *src;
 
-	if (unlikely(ucBssIndex >= BSSID_NUM))
+	if (!IS_BSS_INDEX_VALID(ucBssIndex))
 		return WLAN_STATUS_FAILURE;
 
 	/* make sure LLs is supported */
@@ -616,8 +616,8 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 	uint8_t arBssid[PARAM_MAC_ADDR_LEN];
 	uint32_t u4BufLen, u4TxRate, u4TxBw, u4RxRate, u4RxBw;
 	int32_t i4Rssi = 0;
-	struct PARAM_GET_STA_STATISTICS *prGetStaStatistics;
-	struct PARAM_LINK_SPEED_EX rLinkSpeed = {0};
+	struct PARAM_GET_STA_STATISTICS rQueryStaStatistics;
+	struct PARAM_LINK_SPEED_EX rLinkSpeed;
 	uint32_t u4TotalError;
 	uint32_t u4FcsError;
 	struct net_device_stats *prDevStats;
@@ -676,8 +676,7 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 			       &u4BufLen, ucBssIndex);
 #endif /* CFG_REPORT_MAX_TX_RATE */
 
-	if (rStatus == WLAN_STATUS_SUCCESS &&
-		IS_BSS_INDEX_VALID(ucBssIndex)) {
+	if (IS_BSS_INDEX_VALID(ucBssIndex)) {
 		u4TxRate = rLinkSpeed.rLq[ucBssIndex].u2TxLinkSpeed;
 		u4RxRate = rLinkSpeed.rLq[ucBssIndex].u2RxLinkSpeed;
 		i4Rssi = rLinkSpeed.rLq[ucBssIndex].cRssi;
@@ -777,15 +776,15 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 		sinfo->tx_bytes = prDevStats->tx_bytes;
 
 		/* 6. fill TX_FAILED */
-		prGetStaStatistics = &(
-			prGlueInfo->prAdapter->rQueryStaStatistics);
-		COPY_MAC_ADDR(prGetStaStatistics->aucMacAddr, arBssid);
-		prGetStaStatistics->ucReadClear = TRUE;
+		kalMemZero(&rQueryStaStatistics,
+			   sizeof(rQueryStaStatistics));
+		COPY_MAC_ADDR(rQueryStaStatistics.aucMacAddr, arBssid);
+		rQueryStaStatistics.ucReadClear = TRUE;
 
 		rStatus = kalIoctlByBssIdx(prGlueInfo,
 				wlanoidQueryStaStatistics,
-				prGetStaStatistics,
-				sizeof(struct PARAM_GET_STA_STATISTICS),
+				&rQueryStaStatistics,
+				sizeof(rQueryStaStatistics),
 				TRUE, FALSE, TRUE, &u4BufLen, ucBssIndex);
 
 		if (rStatus != WLAN_STATUS_SUCCESS) {
@@ -793,11 +792,11 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 			       "link speed=%u, rssi=%d, unable to retrieve link speed,status=%u\n",
 			       sinfo->txrate.legacy, sinfo->signal, rStatus);
 		} else {
-			u4FcsError = prGetStaStatistics->rMibInfo[0].u4FcsError;
-			u4TotalError = prGetStaStatistics->u4TxFailCount +
-				       prGetStaStatistics->u4TxLifeTimeoutCount;
+			u4FcsError = rQueryStaStatistics.rMibInfo[0].u4FcsError;
+			u4TotalError = rQueryStaStatistics.u4TxFailCount +
+				       rQueryStaStatistics.u4TxLifeTimeoutCount;
 			prGlueInfo->u4FcsErrorCache += u4FcsError;
-			prDevStats->tx_errors = u4TotalError;
+			prDevStats->tx_errors += u4TotalError;
 #define TEMP_LOG_TEMPLATE \
 	"link speed=%u/%u, bw=%u/%u, rssi=%d, BSSID:[" MACSTR "]," \
 	"TxFail=%u, TxTimeOut=%u, TxOK=%u, RxOK=%u, FcsErr=%u\n"
@@ -807,10 +806,9 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 				sinfo->txrate.bw, sinfo->rxrate.bw,
 				sinfo->signal,
 				MAC2STR(arBssid),
-				prGetStaStatistics->u4TxFailCount,
-				prGetStaStatistics->u4TxLifeTimeoutCount,
-				prDevStats->tx_packets,
-				sinfo->rx_packets,
+				rQueryStaStatistics.u4TxFailCount,
+				rQueryStaStatistics.u4TxLifeTimeoutCount,
+				sinfo->tx_packets, sinfo->rx_packets,
 				u4FcsError
 			);
 #undef TEMP_LOG_TEMPLATE
@@ -990,6 +988,112 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 	return 0;
 }
 #endif
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This routine is responsible for getting statistics for Link layer
+ *        statistics
+ *
+ * @param
+ *
+ * @retval 0:       successful
+ *         others:  failure
+ */
+/*----------------------------------------------------------------------------*/
+int mtk_cfg80211_get_link_statistics(struct wiphy *wiphy,
+				     struct net_device *ndev, u8 *mac,
+				     struct station_info *sinfo)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t rStatus;
+	uint8_t arBssid[PARAM_MAC_ADDR_LEN];
+	uint32_t u4BufLen;
+	struct PARAM_LINK_SPEED_EX rLinkSpeed;
+	struct PARAM_GET_STA_STATISTICS rQueryStaStatistics;
+	struct PARAM_GET_BSS_STATISTICS rQueryBssStatistics;
+	struct net_device_stats *prDevStats;
+	uint8_t ucBssIndex = 0;
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+	ASSERT(prGlueInfo);
+
+	ucBssIndex = wlanGetBssIdx(ndev);
+	if (!IS_BSS_INDEX_AIS(prGlueInfo->prAdapter, ucBssIndex))
+		return -EINVAL;
+
+	kalMemZero(arBssid, MAC_ADDR_LEN);
+	SET_IOCTL_BSSIDX(prGlueInfo->prAdapter, ucBssIndex);
+	wlanQueryInformation(prGlueInfo->prAdapter, wlanoidQueryBssid,
+				&arBssid[0], sizeof(arBssid), &u4BufLen);
+
+	/* 1. check BSSID */
+	if (UNEQUAL_MAC_ADDR(arBssid, mac)) {
+		/* wrong MAC address */
+		DBGLOG(REQ, WARN,
+		       "incorrect BSSID: [" MACSTR
+		       "] currently connected BSSID["
+		       MACSTR "]\n",
+		       MAC2STR(mac), MAC2STR(arBssid));
+		return -ENOENT;
+	}
+
+	/* 2. fill RSSI */
+	if (kalGetMediaStateIndicated(prGlueInfo, ucBssIndex) !=
+	    MEDIA_STATE_CONNECTED) {
+		/* not connected */
+		DBGLOG(REQ, WARN, "not yet connected\n");
+	} else {
+		rStatus = kalIoctlByBssIdx
+			(prGlueInfo,
+			 wlanoidQueryRssi,
+			 &rLinkSpeed, sizeof(rLinkSpeed),
+			 TRUE, FALSE, FALSE,
+			 &u4BufLen, ucBssIndex);
+
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			DBGLOG(REQ, WARN, "unable to retrieve rssi\n");
+	}
+
+	/* Get statistics from net_dev */
+	prDevStats = (struct net_device_stats *)kalGetStats(ndev);
+
+	/*3. get link layer statistics from Driver and FW */
+	if (prDevStats) {
+		/* 3.1 get per-STA link statistics */
+		kalMemZero(&rQueryStaStatistics,
+			   sizeof(rQueryStaStatistics));
+		COPY_MAC_ADDR(rQueryStaStatistics.aucMacAddr, arBssid);
+		rQueryStaStatistics.ucLlsReadClear =
+			FALSE;	/* dont clear for get BSS statistic */
+
+		rStatus = kalIoctl(prGlueInfo, wlanoidQueryStaStatistics,
+				   &rQueryStaStatistics,
+				   sizeof(rQueryStaStatistics),
+				   TRUE, FALSE, TRUE, &u4BufLen);
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			DBGLOG(REQ, WARN,
+			       "unable to retrieve per-STA link statistics\n");
+
+		/*3.2 get per-BSS link statistics */
+		if (rStatus == WLAN_STATUS_SUCCESS) {
+			kalMemZero(&rQueryBssStatistics,
+				   sizeof(rQueryBssStatistics));
+			rQueryBssStatistics.ucBssIndex = ucBssIndex;
+
+			rStatus = kalIoctl(prGlueInfo,
+				wlanoidQueryBssStatistics,
+				&rQueryBssStatistics,
+				sizeof(rQueryBssStatistics),
+				TRUE, FALSE, TRUE, &u4BufLen);
+		} else {
+			DBGLOG(REQ, WARN,
+			       "unable to retrieve per-BSS link statistics\n");
+		}
+
+	}
+
+	return 0;
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief This routine is responsible for requesting to do a scan
@@ -6020,7 +6124,7 @@ int testmode_set_ax_blacklist(IN struct wiphy *wiphy, IN char *pcCommand,
 	int32_t i4BytesWritten = -1;
 	uint8_t ucType = 0;
 	uint8_t i = 0;
-	uint8_t aucMacAddr[MAC_ADDR_LEN] = { 0 };
+	uint8_t aucMacAddr[MAC_ADDR_LEN];
 	uint8_t index = 0;
 	int32_t i4Ret = 0;
 
@@ -6588,8 +6692,8 @@ priv_driver_set_beacon_recv(IN struct wiphy *wiphy, IN uint8_t enable)
 int32_t mtk_cfg80211_process_str_cmd_reply(
 	IN struct wiphy *wiphy, IN char *data, IN int len)
 {
+
 	struct sk_buff *skb;
-	int32_t i4Err = 0;
 
 	skb = cfg80211_testmode_alloc_reply_skb(wiphy, len);
 
@@ -6598,11 +6702,7 @@ int32_t mtk_cfg80211_process_str_cmd_reply(
 		return -ENOMEM;
 	}
 
-	i4Err = nla_put_nohdr(skb, len, data);
-	if (i4Err) {
-		kfree_skb(skb);
-		return i4Err;
-	}
+	nla_put_nohdr(skb, len, data);
 
 	return cfg80211_testmode_reply(skb);
 }
@@ -7166,7 +7266,7 @@ int32_t mtk_cfg80211_process_str_cmd(IN struct wiphy *wiphy,
 		return testmode_set_scan_param(wiphy, cmd, len);
 	} else if (strnicmp(cmd, "GET_CU", 6) == 0) {
 		return testmode_get_cu(wiphy, cmd, len, ucBssIndex);
-#endif
+#endif		
 	} else
 		return -EOPNOTSUPP;
 
@@ -7626,10 +7726,6 @@ int mtk_IsP2PNetDevice(struct GLUE_INFO *prGlueInfo,
 		ret = 0;
 	else if (iftype == NL80211_IFTYPE_ADHOC)
 		ret = 0;
-#if CFG_SUPPORT_NAN
-	else if (prNetDevPrivate->ucIsNan == TRUE)
-		ret = 0;
-#endif
 
 	return ret;
 }

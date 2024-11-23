@@ -409,8 +409,6 @@ void p2pFsmRunEventScanDone(IN struct ADAPTER *prAdapter,
 	prP2pBssInfo =
 		GET_BSS_INFO_BY_INDEX(prAdapter, prScanDoneMsg->ucBssIndex);
 
-	if (!prP2pBssInfo)
-		return;
 	if (prAdapter->fgIsP2PRegistered == FALSE) {
 		DBGLOG(P2P, TRACE,
 			"P2P BSS Info is removed, break p2pFsmRunEventScanDone\n");
@@ -488,8 +486,7 @@ void p2pFsmRunEventTxCancelWait(IN struct ADAPTER *prAdapter,
 
 }				/* p2pFsmRunEventTxCancelWait */
 
-void p2pFsmRunEventCsaDoneTimeOut(struct ADAPTER *prAdapter,
-		uintptr_t ulParamPtr)
+void p2pFsmRunEventCsaDoneTimeOut(IN struct ADAPTER *prAdapter)
 {
 	DBGLOG(P2P, TRACE,
 		"CSA block scan timeout\n");

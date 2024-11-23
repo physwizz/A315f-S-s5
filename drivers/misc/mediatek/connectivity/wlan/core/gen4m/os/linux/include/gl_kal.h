@@ -317,7 +317,6 @@ enum ENUM_SPIN_LOCK_CATEGORY_E {
 	SPIN_LOCK_BSSLIST_CFG,
 #if CFG_SUPPORT_NAN
 	SPIN_LOCK_NAN_NEGO_CRB,
-	SPIN_LOCK_NAN_NDL_FLOW_CTRL,
 #endif
 	SPIN_LOCK_NUM
 };
@@ -697,51 +696,6 @@ static inline void kalCfg80211ScanDone(struct cfg80211_scan_request *request,
 }
 #endif
 
-/**
- * kalCfg80211VendorEventAlloc - abstraction of cfg80211_vendor_event_alloc
- * cfg80211_vendor_event_alloc - allocate vendor-specific event skb
- * @wiphy: the wiphy
- * @event_idx: index of the vendor event in the wiphy's vendor_events
- * @approxlen: an upper bound of the length of the data that will
- *	be put into the skb
- * @gfp: allocation flags
- *
- * This function allocates and pre-fills an skb for an event on the
- * vendor-specific multicast group.
- *
- * When done filling the skb, call cfg80211_vendor_event() with the
- * skb to send the event.
- *
- * Return: An allocated and pre-filled skb. %NULL if any errors happen.
- *
- * Since linux-4.1.0 the 2nd parameter is added struct wireless_dev
- */
-
-#if KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE
-static inline struct sk_buff *
-kalCfg80211VendorEventAlloc(struct wiphy *wiphy, struct wireless_dev *wdev,
-				 int approxlen, int event_idx, gfp_t gfp)
-{
-	return cfg80211_vendor_event_alloc(wiphy, wdev,
-					approxlen, event_idx, gfp);
-}
-#else
-static inline struct sk_buff *
-kalCfg80211VendorEventAlloc(struct wiphy *wiphy, struct wireless_dev *wdev,
-				 int approxlen, int event_idx, gfp_t gfp)
-{
-	return cfg80211_vendor_event_alloc(wiphy,
-					approxlen, event_idx, gfp);
-}
-#endif
-
-static inline void kalCfg80211VendorEvent(void *pvPacket)
-{
-	struct sk_buff *pkt = (struct sk_buff *)pvPacket;
-
-	return cfg80211_vendor_event(pkt, GFP_KERNEL);
-}
-
 /* Consider on some Android platform, using request_firmware_direct()
  * may cause system failed to load firmware. So we still use
  * request_firmware().
@@ -919,14 +873,6 @@ static inline void kalCfg80211VendorEvent(void *pvPacket)
 })
 #endif
 
-#define kalMemZAlloc(u4Size, eMemType) ({    \
-	void *pvAddr; \
-	pvAddr = kalMemAlloc(u4Size, eMemType); \
-	if (pvAddr) \
-		kalMemSet(pvAddr, 0, u4Size); \
-	pvAddr; \
-})
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Free allocated cache memory
@@ -1068,20 +1014,6 @@ int8_t atoi(uint8_t ch);
 #define _kalRequestFirmware request_firmware
 #endif
 
-#if !defined(__GCC4_has_attribute___fallthrough__)
-#define __GCC4_has_attribute___fallthrough__ 0
-#endif
-
-/* clone 'fallthrough' in include/linux/compiler_attributes.h */
-#if __has_attribute(__fallthrough__)
-#define kal_fallthrough __attribute__((__fallthrough__))
-#else
-#define kal_fallthrough do {} while (0)  /* fallthrough */
-#endif
-
-#define kal_max_t(_type, _v1, _v2) max_t(_type, _v1, _v2)
-#define kal_min_t(_type, _v1, _v2) min_t(_type, _v1, _v2)
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Notify OS with SendComplete event of the specific packet.
@@ -1156,6 +1088,11 @@ int8_t atoi(uint8_t ch);
 })
 #endif
 
+/* Disable logging, Rissu 2024/22/11 */
+#ifdef CONFIG_MTK_CONNECTIVITY_DISABLE_LOG
+#define CFG_DISABLE_LOG	1
+#endif
+
 #define WLAN_TAG                        "[wlan]"
 #if CFG_SUPPORT_SA_LOG
 #define kalPrint(_Fmt...) \
@@ -1167,8 +1104,13 @@ int8_t atoi(uint8_t ch);
 	? kalPrintSALogLimited(WLAN_TAG _Fmt) \
 	: pr_info_ratelimited(WLAN_TAG _Fmt)
 #else
+#if CFG_DISABLE_LOG
+#define kalPrint(_Fmt...)
+#define kalPrintLimited(_Fmt...)
+#else
 #define kalPrint(_Fmt...)               pr_info(WLAN_TAG _Fmt)
 #define kalPrintLimited(_Fmt...)        pr_info_ratelimited(WLAN_TAG _Fmt)
+#endif /* CFG_DISABLE_LOG */
 #endif
 
 #define kalBreakPoint() \
@@ -1334,12 +1276,12 @@ uint32_t kalRxIndicateOnePkt(IN struct GLUE_INFO
 			     *prGlueInfo, IN void *pvPkt);
 
 #if CFG_SUPPORT_NAN
-int kalIndicateNetlink2User(struct GLUE_INFO *prGlueInfo, void *pvBuf,
-			    uint32_t u4BufLen);
-void kalCreateUserSock(struct GLUE_INFO *prGlueInfo);
-void kalReleaseUserSock(struct GLUE_INFO *prGlueInfo);
-void kalNanIndicateStatusAndComplete(struct GLUE_INFO *prGlueInfo,
-				     uint32_t eStatus, uint8_t ucRoleIdx);
+int kalIndicateNetlink2User(IN struct GLUE_INFO *prGlueInfo, IN void *pvBuf,
+			    IN uint32_t u4BufLen);
+void kalCreateUserSock(IN struct GLUE_INFO *prGlueInfo);
+void kalReleaseUserSock(IN struct GLUE_INFO *prGlueInfo);
+void kalNanIndicateStatusAndComplete(IN struct GLUE_INFO *prGlueInfo,
+				     IN uint32_t eStatus, IN uint8_t ucRoleIdx);
 #endif
 
 void
@@ -1984,8 +1926,7 @@ void kalBatNotifierUnReg(void);
 #endif
 
 #if CFG_SUPPORT_NAN
-void kalNanHandleVendorEvent(struct ADAPTER *prAdapter, uint8_t *prBuffer);
-void kalNanHandlePendingCmd(IN struct ADAPTER *prAdapter, uint8_t *prBuffer);
+void kalNanHandleVendorEvent(IN struct ADAPTER *prAdapter, uint8_t *prBuffer);
 #endif
 
 int kalWlanUeventInit(void);
@@ -1994,8 +1935,6 @@ u_int8_t kalSendUevent(const char *src);
 
 int _kalSnprintf(char *buf, size_t size, const char *fmt, ...);
 int _kalSprintf(char *buf, const char *fmt, ...);
-
-/* systrace utilities */
 
 uint32_t kalSetSuspendFlagToEMI(IN struct ADAPTER
 	*prAdapter, IN u_int8_t fgSuspend);

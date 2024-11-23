@@ -33,6 +33,16 @@
 
 int gCmbStubLogLevel = CMB_STUB_INFO_LOG;
 
+/* Disable logging, Rissu 2024/22/11 */
+#ifdef CONFIG_MTK_CONNECTIVITY_DISABLE_LOG
+#define CFG_DISABLE_LOG	1
+#endif
+
+#if CFG_DISABLE_LOG
+#define CMB_STUB_LOG_PR_INFO(fmt, arg...)
+#define CMB_STUB_LOG_PR_WARN(fmt, arg...)
+#define CMB_STUB_LOG_PR_DBG(fmt, arg...)
+#else
 #define CMB_STUB_LOG_PR_INFO(fmt, arg...) \
 do { \
 	if (gCmbStubLogLevel >= CMB_STUB_INFO_LOG) \
@@ -48,6 +58,7 @@ do { \
 	if (gCmbStubLogLevel >= CMB_STUB_DBG_LOG) \
 		pr_info(fmt, ##arg); \
 } while (0)
+#endif /* CFG_DISABLE_LOG */
 
 /*******************************************************************************
 *                    E X T E R N A L   R E F E R E N C E S
@@ -115,10 +126,12 @@ static enum CMB_STUB_AIF_X audio2aif[] = {
 	[COMBO_AUDIO_STATE_3] = CMB_STUB_AIF_3,
 };
 #endif
+
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
+
 static int _mtk_wcn_cmb_stub_query_ctrl(void);
 static int _mtk_wcn_cmb_stub_trigger_assert(void);
 static void _mtk_wcn_cmb_stub_clock_fail_dump(void);
@@ -181,6 +194,7 @@ EXPORT_SYMBOL(mtk_wcn_cmb_stub_reg);
 int mtk_wcn_cmb_stub_unreg(void)
 {
 	wmt_export_platform_bridge_unregister();
+
 	cmb_stub_aif_ctrl_cb = NULL;
 	cmb_stub_func_ctrl_cb = NULL;
 	cmb_stub_thermal_ctrl_cb = NULL;

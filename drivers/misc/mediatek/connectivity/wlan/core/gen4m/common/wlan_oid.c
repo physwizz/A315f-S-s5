@@ -7576,7 +7576,6 @@ wlanoidSetSwCtrlWrite(IN struct ADAPTER *prAdapter,
 
 	case 0x9000:
 	default: {
-		kalMemSet(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 		rCmdSwCtrl.u4Id = prSwCtrlInfo->u4Id;
 		rCmdSwCtrl.u4Data = prSwCtrlInfo->u4Data;
 		rWlanStatus = wlanSendSetQueryCmd(prAdapter,
@@ -8186,31 +8185,28 @@ wlanoidSetMulticastList(IN struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_NAN
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief This routine is called to set Multicast Address List.
- *
- * \param[in] prAdapter      Pointer to the Adapter structure.
- * \param[in] pvSetBuffer    Pointer to the buffer that holds the data to be
- *                           set.
- * \param[in] u4SetBufferLen The length of the set buffer.
- * \param[out] pu4SetInfoLen If the call is successful, returns the number of
- *                           bytes read from the set buffer. If the call failed
- *                           due to invalid length of the set buffer, returns
- *                           the amount of storage needed.
- *
- * \retval WLAN_STATUS_SUCCESS
- * \retval WLAN_STATUS_INVALID_LENGTH
- * \retval WLAN_STATUS_ADAPTER_NOT_READY
- * \retval WLAN_STATUS_MULTICAST_FULL
- */
+* \brief This routine is called to set Multicast Address List.
+*
+* \param[in] prAdapter      Pointer to the Adapter structure.
+* \param[in] pvSetBuffer    Pointer to the buffer that holds the data to be set.
+* \param[in] u4SetBufferLen The length of the set buffer.
+* \param[out] pu4SetInfoLen If the call is successful, returns the number of
+*                           bytes read from the set buffer. If the call failed
+*                           due to invalid length of the set buffer, returns
+*                           the amount of storage needed.
+*
+* \retval WLAN_STATUS_SUCCESS
+* \retval WLAN_STATUS_INVALID_LENGTH
+* \retval WLAN_STATUS_ADAPTER_NOT_READY
+* \retval WLAN_STATUS_MULTICAST_FULL
+*/
 /*----------------------------------------------------------------------------*/
 uint32_t
-wlanoidSetNANMulticastList(struct ADAPTER *prAdapter, uint8_t ucBssIdx,
-			   void *pvSetBuffer, uint32_t u4SetBufferLen,
-			   uint32_t *pu4SetInfoLen)
+wlanoidSetNANMulticastList(IN struct ADAPTER *prAdapter, uint8_t ucBssIdx,
+			   IN void *pvSetBuffer, IN uint32_t u4SetBufferLen,
+			   OUT uint32_t *pu4SetInfoLen)
 {
 	struct CMD_MAC_MCAST_ADDR rCmdMacMcastAddr;
-
-	kalMemZero(&rCmdMacMcastAddr, sizeof(struct CMD_MAC_MCAST_ADDR));
 
 	if (!prAdapter || !pu4SetInfoLen)
 		return WLAN_STATUS_FAILURE;
@@ -8998,11 +8994,6 @@ wlanoidSet802dot11PowerSaveProfile(IN struct ADAPTER *
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 					  prPowerMode->ucBssIdx);
-	if (prBssInfo == NULL) {
-		DBGLOG(REQ, WARN, "prBssInfo %d is NULL\n",
-		       prPowerMode->ucBssIdx);
-		return WLAN_STATUS_FAILURE;
-	}
 
 	if (prAdapter->fgEnCtiaPowerMode) {
 		if (prPowerMode->ePowerMode != Param_PowerModeCAM) {
@@ -11508,11 +11499,6 @@ wlanoidSetWiFiWmmPsTest(IN struct ADAPTER *prAdapter,
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 					  rSetWmmPsTestParam.ucBssIndex);
-	if (prBssInfo == NULL) {
-		DBGLOG(REQ, ERROR, "prBssInfo %d is NULL\n",
-			rSetWmmPsTestParam.ucBssIndex);
-		return WLAN_STATUS_FAILURE;
-	}
 	prPmProfSetupInfo = &prBssInfo->rPmProfSetupInfo;
 	prPmProfSetupInfo->ucBmpDeliveryAC =
 		(rSetWmmPsTestParam.bmfgApsdEnAc >> 4) & BITS(0, 3);
@@ -13142,29 +13128,28 @@ wlanoidSetP2pMode(IN struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_NAN
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief This routine is used to set the nan mode.
- *
- * \param[in] pvAdapter Pointer to the Adapter structure.
- * \param[in] pvSetBuffer A pointer to the buffer that holds the data to be set.
- * \param[in] u4SetBufferLen The length of the set buffer.
- * \param[out] pu4SetInfoLen If the call is successful, returns the number of
- *                          bytes read from the set buffer. If the call failed
- *                          due to invalid length of the set buffer, returns
- *                          the amount of storage needed.
- *
- * \retval WLAN_STATUS_SUCCESS
- * \retval WLAN_STATUS_INVALID_LENGTH
- */
+* \brief This routine is used to set the nan mode.
+*
+* \param[in] pvAdapter Pointer to the Adapter structure.
+* \param[in] pvSetBuffer A pointer to the buffer that holds the data to be set.
+* \param[in] u4SetBufferLen The length of the set buffer.
+* \param[out] pu4SetInfoLen If the call is successful, returns the number of
+*                          bytes read from the set buffer. If the call failed
+*                          due to invalid length of the set buffer, returns
+*                          the amount of storage needed.
+*
+* \retval WLAN_STATUS_SUCCESS
+* \retval WLAN_STATUS_INVALID_LENGTH
+*/
 /*----------------------------------------------------------------------------*/
 uint32_t
-wlanoidSetNANMode(struct ADAPTER *prAdapter, void *pvSetBuffer,
-		  uint32_t u4SetBufferLen, uint32_t *pu4SetInfoLen)
+wlanoidSetNANMode(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
+		  IN uint32_t u4SetBufferLen, OUT uint32_t *pu4SetInfoLen)
 {
 	uint32_t status = WLAN_STATUS_SUCCESS;
 	uint32_t *prEnable = (uint32_t *)NULL;
-	/* P_MSG_P2P_NETDEV_REGISTER_T prP2pNetdevRegMsg =
-	 * (P_MSG_P2P_NETDEV_REGISTER_T)NULL;
-	 */
+	/* P_MSG_P2P_NETDEV_REGISTER_T prP2pNetdevRegMsg = */
+	/* (P_MSG_P2P_NETDEV_REGISTER_T)NULL; */
 	DEBUGFUNC("wlanoidSetnanMode");
 
 	if (!prAdapter || !pu4SetInfoLen || !pvSetBuffer)
@@ -13181,6 +13166,8 @@ wlanoidSetNANMode(struct ADAPTER *prAdapter, void *pvSetBuffer,
 	DBGLOG(INIT, INFO, "Set nan enable[%ld]\n", *prEnable);
 
 	if (*prEnable) {
+		nanSchedInit(prAdapter);
+		nanDiscInit(prAdapter);
 		if (nanLaunch(prAdapter->prGlueInfo)) {
 			/* ToDo:: ASSERT */
 			if (!prAdapter->fgIsNANRegistered) {
@@ -13191,8 +13178,6 @@ wlanoidSetNANMode(struct ADAPTER *prAdapter, void *pvSetBuffer,
 		} else {
 			status = WLAN_STATUS_FAILURE;
 		}
-		prAdapter->rPublishInfo.ucNanPubNum = 0;
-		prAdapter->rSubscribeInfo.ucNanSubNum = 0;
 	} else {
 		if (prAdapter->fgIsNANRegistered)
 			nanRemove(prAdapter->prGlueInfo);
@@ -14548,15 +14533,14 @@ uint32_t
 wlanoidSetNchoHeader(struct CMD_HEADER *prCmdHeader,
 		     struct CMD_FORMAT_V1 *pr_cmd_v1,
 		     char *pStr, uint32_t u4Len) {
-
-	if (!prCmdHeader || !pStr || u4Len == 0)
-		return WLAN_STATUS_FAILURE;
-
 	prCmdHeader->cmdVersion = CMD_VER_1_EXT;
 	prCmdHeader->cmdType = CMD_TYPE_QUERY;
 	prCmdHeader->itemNum = 1;
 	prCmdHeader->cmdBufferLen = sizeof(struct CMD_FORMAT_V1);
 	kalMemSet(prCmdHeader->buffer, 0, MAX_CMD_BUFFER_LENGTH);
+
+	if (!prCmdHeader || !pStr || u4Len == 0)
+		return WLAN_STATUS_FAILURE;
 
 	pr_cmd_v1->itemStringLength = u4Len;
 	kalMemCopy(pr_cmd_v1->itemString, pStr, u4Len);
@@ -16194,53 +16178,52 @@ uint32_t wlanoidSetSer(IN struct ADAPTER *prAdapter,
 	switch (u4CmdId) {
 	case SER_USER_CMD_DISABLE:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET,
-				 SER_SET_DISABLE, 0, TRUE);
+				 SER_SET_DISABLE, 0);
 		break;
 
 	case SER_USER_CMD_ENABLE:
-		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET,
-				SER_SET_ENABLE, 0, TRUE);
+		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET, SER_SET_ENABLE, 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_TRACKING_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
-				 SER_ENABLE_TRACKING, 0, TRUE);
+				 SER_ENABLE_TRACKING, 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_L1_RECOVER_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
 				 SER_ENABLE_TRACKING | SER_ENABLE_L1_RECOVER,
-				 0, TRUE);
+				 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_L2_RECOVER_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
 				 SER_ENABLE_TRACKING | SER_ENABLE_L2_RECOVER,
-				 0, TRUE);
+				 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_L3_RX_ABORT_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
 				 SER_ENABLE_TRACKING | SER_ENABLE_L3_RX_ABORT,
-				 0, TRUE);
+				 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_L3_TX_ABORT_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
 				 SER_ENABLE_TRACKING | SER_ENABLE_L3_TX_ABORT,
-				 0, TRUE);
+				 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_L3_TX_DISABLE_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
 				 SER_ENABLE_TRACKING |
-				 SER_ENABLE_L3_TX_DISABLE, 0, TRUE);
+				 SER_ENABLE_L3_TX_DISABLE, 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_L3_BFRECOVER_ONLY:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_SET_ENABLE_MASK,
 				 SER_ENABLE_TRACKING |
-				 SER_ENABLE_L3_BF_RECOVER, 0, TRUE);
+				 SER_ENABLE_L3_BF_RECOVER, 0);
 		break;
 
 	case SER_USER_CMD_ENABLE_MASK_RECOVER_ALL:
@@ -16251,62 +16234,62 @@ uint32_t wlanoidSetSer(IN struct ADAPTER *prAdapter,
 				  SER_ENABLE_L3_RX_ABORT |
 				  SER_ENABLE_L3_TX_ABORT |
 				  SER_ENABLE_L3_TX_DISABLE |
-				  SER_ENABLE_L3_BF_RECOVER), 0, TRUE);
+				  SER_ENABLE_L3_BF_RECOVER), 0);
 		break;
 
 	case SER_USER_CMD_L0_RECOVER:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				SER_SET_L0_RECOVER, 0, TRUE);
+				SER_SET_L0_RECOVER, 0);
 		break;
 
 	case SER_USER_CMD_L1_RECOVER:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L1_RECOVER, 0, TRUE);
+				 SER_SET_L1_RECOVER, 0);
 		break;
 
 	case SER_USER_CMD_L2_BN0_RECOVER:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L2_RECOVER, ENUM_BAND_0, TRUE);
+				 SER_SET_L2_RECOVER, ENUM_BAND_0);
 		break;
 
 	case SER_USER_CMD_L2_BN1_RECOVER:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L2_RECOVER, ENUM_BAND_1, TRUE);
+				 SER_SET_L2_RECOVER, ENUM_BAND_1);
 		break;
 
 	case SER_USER_CMD_L3_RX0_ABORT:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_RX_ABORT, ENUM_BAND_0, TRUE);
+				 SER_SET_L3_RX_ABORT, ENUM_BAND_0);
 		break;
 
 	case SER_USER_CMD_L3_RX1_ABORT:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_RX_ABORT, ENUM_BAND_1, TRUE);
+				 SER_SET_L3_RX_ABORT, ENUM_BAND_1);
 		break;
 
 	case SER_USER_CMD_L3_TX0_ABORT:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_TX_ABORT, ENUM_BAND_0, TRUE);
+				 SER_SET_L3_TX_ABORT, ENUM_BAND_0);
 		break;
 
 	case SER_USER_CMD_L3_TX1_ABORT:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_TX_ABORT, ENUM_BAND_1, TRUE);
+				 SER_SET_L3_TX_ABORT, ENUM_BAND_1);
 		break;
 
 	case SER_USER_CMD_L3_TX0_DISABLE:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_TX_DISABLE, ENUM_BAND_0, TRUE);
+				 SER_SET_L3_TX_DISABLE, ENUM_BAND_0);
 		break;
 
 	case SER_USER_CMD_L3_TX1_DISABLE:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_TX_DISABLE, ENUM_BAND_1, TRUE);
+				 SER_SET_L3_TX_DISABLE, ENUM_BAND_1);
 		break;
 
 	case SER_USER_CMD_L3_BF_RECOVER:
 		wlanoidSerExtCmd(prAdapter, SER_ACTION_RECOVER,
-				 SER_SET_L3_BF_RECOVER, 0, TRUE);
+				 SER_SET_L3_BF_RECOVER, 0);
 		break;
 
 	default:
@@ -16317,8 +16300,7 @@ uint32_t wlanoidSetSer(IN struct ADAPTER *prAdapter,
 }
 
 uint32_t wlanoidSerExtCmd(IN struct ADAPTER *prAdapter, uint8_t ucAction,
-			 uint8_t ucSerSet, uint8_t ucDbdcIdx,
-			 u_int8_t fgIsOid) {
+			 uint8_t ucSerSet, uint8_t ucDbdcIdx) {
 	struct EXT_CMD_SER_T rCmdSer = {0};
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 
@@ -16331,7 +16313,7 @@ uint32_t wlanoidSerExtCmd(IN struct ADAPTER *prAdapter, uint8_t ucAction,
 					 EXT_CMD_ID_SER,
 					 TRUE,
 					 FALSE,
-					 fgIsOid,
+					 TRUE,
 					 NULL,
 					 nicOidCmdTimeoutCommon,
 					 sizeof(struct EXT_CMD_SER_T),
@@ -16948,7 +16930,6 @@ uint32_t wlanoidPktProcessIT(struct ADAPTER *prAdapter, void *pvBuffer,
 	struct AIS_SPECIFIC_BSS_INFO *aiss = NULL;
 	struct LINK *ess = NULL;
 	uint8_t *pos = NULL;
-	int32_t i4Ret = 0;
 
 	ucBssIndex = GET_IOCTL_BSSIDX(prAdapter);
 	ais = aisGetAisBssInfo(prAdapter, ucBssIndex);
@@ -17000,20 +16981,10 @@ uint32_t wlanoidPktProcessIT(struct ADAPTER *prAdapter, void *pvBuffer,
 		rxframe->u2DisassocTimer = 600;
 		rxframe->ucValidityInterval = 255;
 
-		if (i4Argc > 1) {
-			i4Ret = kalkStrtou8(
-				apcArgv[1], 0, &rxframe->ucRequestMode);
-			DBGLOG(OID, TRACE,
-				"parse ucRequestMode error i4Ret=%d\n",
-				i4Ret);
-		}
-		if (i4Argc > 2) {
-			i4Ret = kalkStrtou16(
-				apcArgv[2], 0, &rxframe->u2DisassocTimer);
-			DBGLOG(OID, TRACE,
-				"parse u2DisassocTimer error i4Ret=%d\n",
-				i4Ret);
-		}
+		if (i4Argc > 1)
+			kalkStrtou8(apcArgv[1], 0, &rxframe->ucRequestMode);
+		if (i4Argc > 2)
+			kalkStrtou16(apcArgv[2], 0, &rxframe->u2DisassocTimer);
 
 		pos = aucPacket + sizeof(struct ACTION_BTM_REQ_FRAME);
 
@@ -17033,20 +17004,10 @@ uint32_t wlanoidPktProcessIT(struct ADAPTER *prAdapter, void *pvBuffer,
 			uint8_t len = sizeof(struct IE_NEIGHBOR_REPORT) -
 				ELEM_HDR_LEN + 3;
 
-			if (i4Argc > 3) {
-				i4Ret = kalkStrtou8(
-					apcArgv[3], 0, &targetPref);
-				DBGLOG(OID, TRACE,
-					"parse targetPref error i4Ret=%d\n",
-					i4Ret);
-			}
-			if (i4Argc > 4) {
-				i4Ret = kalkStrtou8(
-					apcArgv[4], 0, &diff);
-				DBGLOG(OID, TRACE,
-					"parse diff error i4Ret=%d\n",
-					i4Ret);
-			}
+			if (i4Argc > 3)
+				kalkStrtou8(apcArgv[3], 0, &targetPref);
+			if (i4Argc > 4)
+				kalkStrtou8(apcArgv[4], 0, &diff);
 
 			neig = (struct IE_NEIGHBOR_REPORT *) pos;
 			pos += sizeof(struct IE_NEIGHBOR_REPORT);
@@ -18329,17 +18290,5 @@ uint32_t wlanoidSetLatencyCrtData(IN struct ADAPTER *prAdapter,
 	}
 
 	return WLAN_STATUS_SUCCESS;
-}
-#endif
-
-#if CFG_SUPPORT_NAN
-uint32_t
-wlanoidGetNanDeviceInfo(IN struct ADAPTER *prAdapter,
-	OUT void *pvQueryBuffer,
-	IN uint32_t u4QueryBufferLen,
-	OUT uint32_t *pu4QueryInfoLen)
-{
-	return nanDevGetDeviceInfo(prAdapter,
-	pvQueryBuffer, u4QueryBufferLen, pu4QueryInfoLen);
 }
 #endif

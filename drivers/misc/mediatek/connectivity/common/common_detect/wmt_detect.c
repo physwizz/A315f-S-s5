@@ -23,8 +23,8 @@
 #include "wmt_detect.h"
 #include "wmt_gpio.h"
 #include "wmt_dev.h"
-#include "conn_drv_init.h"
 
+#include "conn_drv_init.h"
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif

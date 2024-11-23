@@ -91,8 +91,6 @@
 #define IP_PRO_ICMP				0x01
 #define IP_PRO_UDP				0x11
 #define IP_PRO_TCP				0x06
-#define IP_PRO_ICMPV6				0x3A
-#define IPV6_PROTOCOL_HOP_BY_HOP		0x00
 
 #define UDP_PORT_DHCPS				0x43
 #define UDP_PORT_DHCPC				0x44
@@ -123,18 +121,6 @@
 #define IP_PRO_ICMP				0x01
 #define IP_PRO_UDP				0x11
 #define IP_PRO_TCP				0x06
-
-/* RFC 4443 */
-#define ICMP_TYPE_OFFSET			0
-#define ICMP_CODE_OFFSET			1
-#define ICMP_CHECKSUM_OFFSET			2
-#define ICMP_IDENTIFIER_OFFSET			4
-#define ICMP_SEQ_NUM_OFFSET			6
-
-/* RFC 4681 */
-#define ICMPV6_NS_NA_RESERVED_OFFSET		4
-#define ICMPV6_NS_NA_TARGET_OFFSET		8
-#define ICMPV6_NS_NA_OPTION_OFFSET		24
 
 /* IPv4 Header definition */
 #define IPV4_HDR_TOS_OFFSET                     1
@@ -174,18 +160,8 @@
 #define ICMPV6_FLAG_ROUTER_BIT                  BIT(7)
 #define ICMPV6_FLAG_SOLICITED_BIT               BIT(6)
 #define ICMPV6_FLAG_OVERWRITE_BIT               BIT(5)
-#define ICMPV6_TYPE_ECHO_REQUEST                0x80 /* 128 */
-#define ICMPV6_TYPE_ECHO_REPLY                  0x81 /* 129 */
-#define ICMPV6_TYPE_MULTICAST_LISTENER_QUERY    0x82 /* 130 */
-#define ICMPV6_TYPE_MULTICAST_LISTENER_REPORT   0x83 /* 131 */
-#define ICMPV6_TYPE_MULTICAST_LISTENER_DONE     0x84 /* 132 */
-#define ICMPV6_TYPE_ROUTER_SOLICITATION		0x85 /* 133 */
-#define ICMPV6_TYPE_ROUTER_ADVERTISEMENT	0x86 /* 134 */
-#define ICMPV6_TYPE_NEIGHBOR_SOLICITATION       0x87 /* 135 */
-#define ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT      0x88 /* 136 */
-
-#define ICMPV6_OPTION_SOURCE_LINK_ADDR		1
-#define ICMPV6_OPTION_TARGET_LINK_ADDR		2
+#define ICMPV6_TYPE_NEIGHBOR_SOLICITATION       0x87
+#define ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT      0x88
 
 #define TCP_HDR_FLAG_OFFSET                     13
 #define TCP_HDR_FLAG_ACK_BIT                    BIT(4)
@@ -206,15 +182,6 @@
 #define IP_PORT_BOOTP_CLIENT                    68
 
 #define DHCP_MAGIC_NUMBER                       0x63825363
-
-#define DHCP_DISCOVER				1
-#define DHCP_OFFER				2
-#define DHCP_REQUEST				3
-#define DHCP_DECLINE				4
-#define DHCP_ACK				5
-#define DHCP_NAK				6
-#define DHCP_RELEASE				7
-#define DHCP_INFORM				8
 
 #define ARP_OPERATION_OFFSET                    6
 #define ARP_SENDER_MAC_OFFSET                   8

@@ -3,13 +3,6 @@ ifeq ($(CONFIG_MTK_PLATFORM),)
 endif
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
-ifeq ($(TARGET_PRODUCT),)
-$(warning TARGET_PRODUCT is empty! using default option.)
-endif
-
-# disable logs!
-ccflags-y += -DDBG_DISABLE_ALL_LOG=1
-
 # ---------------------------------------------------
 # OS option
 # ---------------------------------------------------
@@ -171,32 +164,6 @@ else
     ccflags-y += -DCFG_ENABLE_HOST_BUS_TIMEOUT=0
 endif
 
-ifneq ($(findstring 96516,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96516SA1_DOMAIN_CH
-endif
-
-ifneq ($(findstring a03,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96516SA1_DOMAIN_CH
-endif
-
-ifneq ($(findstring 96616,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96616AA1_DOMAIN_PWR
-endif
-
-ifneq ($(findstring a04,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96616AA1_DOMAIN_PWR
-endif
-
-########A045
-ifneq ($(filter a04%,$(TARGET_PRODUCT)),)
-ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
-endif
-
-########A055
-ifneq ($(filter a05m%,$(TARGET_PRODUCT)),)
-ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-
 ifneq ($(findstring 5_0,$(MTK_COMBO_CHIP)),)
 ccflags-y:=$(filter-out -USOC5_0,$(ccflags-y))
 ccflags-y += -DSOC5_0
@@ -273,7 +240,6 @@ CONFIG_MTK_WIFI_RA_OFLD_SUPPORT=y
 
 ifeq ($(CONFIG_MTK_WIFI_CONNAC2X), y)
     ccflags-y += -DCFG_SUPPORT_CONNAC2X=1
-    ccflags-y += -DCFG_SUPPORT_CONNAC3X=0
 else
     ccflags-y += -DCFG_SUPPORT_CONNAC2X=0
 endif
@@ -352,15 +318,17 @@ else ifneq ($(filter 6765, $(WLAN_CHIP_ID)),)
 else ifneq ($(filter 6833, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_PALMER
 
+ifneq ($(filter a23ex%, $(PROJECT_NAME)),)
+    ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
+endif
 ifneq ($(filter a13x%, $(PROJECT_NAME)),)
-ifneq ($(findstring xx, $(TARGET_PRODUCT)),)
+ifneq ($(filter %xx %skt, $(TARGET_PRODUCT)),)
     ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
 endif
 endif
 
 else ifneq ($(filter 6877, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_MONTROSE
-    CONFIG_MTK_WIFI_NAN=y
 endif
 
 ifneq ($(filter 8791, $(WLAN_CHIP_ID)),)
@@ -535,7 +503,6 @@ endif
 
 ifeq ($(CONFIG_MTK_WIFI_NAN), y)
 ccflags-y += -DCFG_SUPPORT_NAN=1
-NEED_CRYPTO=y
 else
 ccflags-y += -DCFG_SUPPORT_NAN=0
 endif
@@ -547,9 +514,8 @@ endif
 ccflags-y += -DDBG=0
 ccflags-y += -I$(src)/os -I$(src)/os/$(os)/include
 ccflags-y += -I$(src)/include -I$(src)/include/nic -I$(src)/include/mgmt -I$(src)/include/chips
-ccflags-y += -I$(src)/include/wpa_supp
 ifeq ($(CONFIG_MTK_WIFI_NAN), y)
-ccflags-y += -I$(src)/include/nan
+ccflags-y += -I$(src)/include/nan -I$(src)/include/nan/wpa_supp
 endif
 ifeq ($(CFG_SUPPORT_WIFI_SYSDVT), 1)
 ccflags-y += -I$(src)/include/dvt
@@ -647,7 +613,6 @@ MGMT_DIR    := mgmt/
 NAN_DIR     := nan/
 CHIPS       := chips/
 CHIPS_CMM   := $(CHIPS)common/
-WPA_DIR     := wpa_supp/
 
 ifneq ($(WLAN_CHIP_ID),)
 PLAT_DIR    := os/$(os)/plat/mt$(WLAN_CHIP_ID)/
@@ -735,33 +700,6 @@ MGMT_OBJS := 	$(MGMT_DIR)ais_fsm.o \
 		$(MGMT_DIR)thrm.o \
 		$(MGMT_DIR)mscs.o \
 		$(MGMT_DIR)ie_sort.o \
-
-ifeq ($(NEED_CRYPTO), y)
-ccflags-y += -DCFG_SUPPORT_CRYPTO=1
-CRYPTO_OBJS :=  $(WPA_DIR)FourWayHandShake.o\
-        $(WPA_DIR)src/utils/common.o\
-        $(WPA_DIR)src/crypto/sha1.o\
-        $(WPA_DIR)src/crypto/sha1-internal.o\
-        $(WPA_DIR)src/crypto/sha1-prf.o\
-        $(WPA_DIR)src/crypto/aes-wrap.o\
-        $(WPA_DIR)src/crypto/aes-internal.o\
-        $(WPA_DIR)src/crypto/aes-unwrap.o\
-        $(WPA_DIR)src/crypto/aes-internal-enc.o\
-        $(WPA_DIR)src/crypto/aes-internal-dec.o\
-        $(WPA_DIR)src/crypto/aes-siv.o\
-        $(WPA_DIR)src/crypto/aes-ctr.o\
-        $(WPA_DIR)src/crypto/aes-omac1.o\
-        $(WPA_DIR)src/crypto/sha256.o\
-        $(WPA_DIR)src/crypto/sha256-prf.o\
-        $(WPA_DIR)src/crypto/sha256-internal.o\
-        $(WPA_DIR)src/crypto/pbkdf2-sha256.o\
-        $(WPA_DIR)src/crypto/sha384-internal.o\
-        $(WPA_DIR)src/crypto/sha512-internal.o\
-        $(WPA_DIR)src/crypto/sha384-prf.o\
-        $(WPA_DIR)src/crypto/sha384.o \
-        $(WPA_DIR)src/crypto/sha256-kdf.o \
-        $(WPA_DIR)src/crypto/sha384-kdf.o
-endif
 
 ifneq ($(os), none)
 MGMT_OBJS +=	$(MGMT_DIR)wlan_ring.o \
@@ -879,12 +817,30 @@ NAN_OBJS := $(NAN_DIR)nan_dev.o \
             $(NAN_DIR)nan_txm.o
 
 NAN_SEC_OBJS := $(NAN_DIR)nan_sec.o\
-                $(WPA_DIR)src/ap/wpa_auth.o\
-                $(WPA_DIR)src/common/wpa_common.o\
-                $(WPA_DIR)src/rsn_supp/wpa.o\
-                $(WPA_DIR)wpa_supplicant/wpas_glue.o\
-                $(WPA_DIR)wpa_supplicant/wpa_supplicant.o\
-                $(WPA_DIR)src/ap/wpa_auth_glue.o
+                $(NAN_DIR)wpa_supp/FourWayHandShake.o\
+                $(NAN_DIR)wpa_supp/src/ap/wpa_auth.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha1.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha1-internal.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha1-prf.o\
+                $(NAN_DIR)wpa_supp/src/common/wpa_common.o\
+                $(NAN_DIR)wpa_supp/src/crypto/aes-wrap.o\
+                $(NAN_DIR)wpa_supp/src/crypto/aes-internal.o\
+                $(NAN_DIR)wpa_supp/src/utils/common.o\
+                $(NAN_DIR)wpa_supp/src/rsn_supp/wpa.o\
+                $(NAN_DIR)wpa_supp/src/crypto/aes-unwrap.o\
+                $(NAN_DIR)wpa_supp/src/crypto/aes-internal-enc.o\
+                $(NAN_DIR)wpa_supp/src/crypto/aes-internal-dec.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha256.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha256-prf.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha256-internal.o\
+                $(NAN_DIR)wpa_supp/wpa_supplicant/wpas_glue.o\
+                $(NAN_DIR)wpa_supp/wpa_supplicant/wpa_supplicant.o\
+                $(NAN_DIR)wpa_supp/src/ap/wpa_auth_glue.o\
+                $(NAN_DIR)wpa_supp/src/crypto/pbkdf2-sha256.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha384-internal.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha512-internal.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha384-prf.o\
+                $(NAN_DIR)wpa_supp/src/crypto/sha384.o
 endif
 
 # ---------------------------------------------------
@@ -978,6 +934,7 @@ ccflags-y += -I$(src)/$(SERVICE_DIR)include
 ccflags-y += -I$(src)/$(SERVICE_DIR)service/include
 ccflags-y += -I$(src)/$(SERVICE_DIR)glue/osal/include
 ccflags-y += -I$(src)/$(SERVICE_DIR)glue/hal/include
+$(info $$CCFLAG is [{$(ccflags-y)}])
 SERVICE_OBJS := $(SERVICE_DIR)agent/agent.o \
                 $(SERVICE_DIR)service/service_test.o \
                 $(SERVICE_DIR)service/test_engine.o \
@@ -998,80 +955,9 @@ $(MODULE_NAME)-objs  += $(HIF_OBJS)
 $(MODULE_NAME)-objs  += $(MGMT_OBJS)
 $(MODULE_NAME)-objs  += $(CHIPS_OBJS)
 $(MODULE_NAME)-objs  += $(SYSDVT_OBJS)
-$(MODULE_NAME)-objs  += $(CRYPTO_OBJS)
 $(MODULE_NAME)-objs  += $(NAN_OBJS)
 $(MODULE_NAME)-objs  += $(NAN_SEC_OBJS)
 
 ifneq ($(findstring UT_TEST_MODE,$(MTK_COMBO_CHIP)),)
 include $(src)/test/ut.make
 endif
-
-ifneq ($(findstring 96801,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_BOARD_HAS_W1_OPTION_H
-endif
-ifneq ($(findstring 96806,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_BOARD_HAS_W1_OPTION_H
-endif
-
-ifneq ($(findstring a22,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_BOARD_HAS_W1_OPTION_H
-endif
-ifneq ($(findstring 96902,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96902AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmsq,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96902AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmcs,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96902AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmtfn,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96902AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmue,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96902AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring 96901AA1,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring 96901WA1,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmzh,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmxx,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmeea,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a14xmtur,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96901AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring 96818AA1,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring 96818BA1,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a05mxx,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a05mins,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a05mtur,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a05mser,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring a05mub,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_MTK_S96818AA1_DOMAIN_PWR
-endif
-ifneq ($(findstring f42,$(TARGET_PRODUCT)),)
-    ccflags-y += -DCONFIG_BOARD_HAS_W1_OPTION_H
-endif
-
-## ^^^ ignore if not necessary ^^^ ##

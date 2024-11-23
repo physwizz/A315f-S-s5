@@ -1566,10 +1566,6 @@ void halRxReceiveRFBs(IN struct ADAPTER *prAdapter, uint32_t u4Port,
 		prRxStatus = prSwRfb->prRxStatus;
 		ASSERT(prRxStatus);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "Dump RXD:\n");
-		NIC_DUMP_RXD(prAdapter, (uint8_t *)prRxStatus,
-			     prAdapter->chip_info->rxd_size);
-
 		prSwRfb->ucPacketType =
 			prRxDescOps->nic_rxd_get_pkt_type(prRxStatus);
 #if DBG
@@ -2339,7 +2335,6 @@ enum ENUM_CMD_TX_RESULT halWpdmaWriteCmd(IN struct GLUE_INFO *prGlueInfo,
 	uint16_t u2Port = TX_RING_CMD_IDX_3;
 	uint32_t u4TotalLen;
 	void *pucSrc = NULL;
-	struct ADAPTER *prAdapter;
 
 	ASSERT(prGlueInfo);
 
@@ -2424,12 +2419,6 @@ enum ENUM_CMD_TX_RESULT halWpdmaWriteCmd(IN struct GLUE_INFO *prGlueInfo,
 	pTxD->Burst = 0;
 	pTxD->DMADONE = 0;
 
-	NIC_DUMP_TXDMAD_HEADER(prAdapter, "Dump CMD TXDMAD:\n");
-	NIC_DUMP_TXDMAD(prAdapter, (uint8_t *)pTxD, sizeof(struct TXD_STRUCT));
-
-	NIC_DUMP_TXD_HEADER(prAdapter, "Dump CMD TXD:\n");
-	NIC_DUMP_TXD(prAdapter, prCmdInfo->pucTxd, prCmdInfo->u4TxdLen);
-
 	/* Increase TX_CTX_IDX, but write to register later. */
 	INC_RING_INDEX(prTxRing->TxCpuIdx, TX_RING_SIZE);
 
@@ -2478,13 +2467,11 @@ static bool halWpdmaFillTxRing(struct GLUE_INFO *prGlueInfo,
 	struct RTMP_DMACB *pTxCell;
 	struct TXD_STRUCT *pTxD;
 	uint16_t u2Port = TX_RING_DATA0_IDX_0;
-	struct ADAPTER *prAdapter;
 
 	ASSERT(prGlueInfo);
 
 	prHifInfo = &prGlueInfo->rHifInfo;
-	prAdapter = prGlueInfo->prAdapter;
-	prChipInfo = prAdapter->chip_info;
+	prChipInfo = prGlueInfo->prAdapter->chip_info;
 
 	u2Port = halTxRingDataSelect(
 		prGlueInfo->prAdapter, prToken->prMsduInfo);
@@ -2520,9 +2507,6 @@ static bool halWpdmaFillTxRing(struct GLUE_INFO *prGlueInfo,
 	pTxD->LastSec1 = 0;
 	pTxD->Burst = 0;
 	pTxD->DMADONE = 0;
-
-	NIC_DUMP_TXDMAD_HEADER(prAdapter, "Dump TXDMAD:\n");
-	NIC_DUMP_TXDMAD(prAdapter, (uint8_t *)pTxD, sizeof(struct TXD_STRUCT));
 
 	/* Increase TX_CTX_IDX, but write to register later. */
 	INC_RING_INDEX(prTxRing->TxCpuIdx, TX_RING_SIZE);

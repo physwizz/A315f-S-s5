@@ -1254,9 +1254,6 @@ static int GPS_init(void)
 	int alloc_ret = 0;
 	md_status_addr = 0;
 
-	/*ExtB P220930-01579 add for  CAIC jinzhao 20221014*/
-	md_status_addr = 0;
-
 #ifdef CONFIG_GPS_CTRL_LNA_SUPPORT
 	gps_lna_linux_plat_drv_register();
 #endif
@@ -1343,9 +1340,6 @@ static int GPS_init(void)
 		pr_info("%s %d: init gps wakeup source fail!", __func__, __LINE__);
 		goto error;
 	}
-
-	/*ExtB P220930-01579 delete for  CAIC jinzhao 20221014*/
-	// md_status_addr = 0;
 
 	sema_init(&status_mtx, 1);
 	sema_init(&fwctl_mtx, 1);

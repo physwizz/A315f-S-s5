@@ -245,10 +245,6 @@
 #endif
 #endif
 
-#if CFG_SUPPORT_CRYPTO
-extern struct ADAPTER *g_prAdapter;
-#endif
-
 #include "gl_typedef.h"
 #include "typedef.h"
 #include "queue.h"
@@ -446,7 +442,6 @@ enum ENUM_NET_REG_STATE {
 };
 #endif
 
-/* note: maximum of pkt flag is 16 */
 enum ENUM_PKT_FLAG {
 	ENUM_PKT_802_11,	/* 802.11 or non-802.11 */
 	ENUM_PKT_802_3,		/* 802.3 or ethernetII */
@@ -462,8 +457,7 @@ enum ENUM_PKT_FLAG {
 #if CFG_SUPPORT_TPENHANCE_MODE
 	ENUM_PKT_TCP_ACK,
 #endif /* CFG_SUPPORT_TPENHANCE_MODE */
-	ENUM_PKT_ICMPV6,	/* ICMPV6 */
-	ENUM_PKT_IPV6_HOP_BY_HOP,
+
 	ENUM_PKT_FLAG_NUM
 };
 
@@ -565,8 +559,7 @@ struct GL_SCAN_CACHE_INFO {
 		uint16_t u2CurRxRate[BSSID_NUM]; /* Unit 500 Kbps */
 		uint8_t ucCurRxRCPI0[BSSID_NUM];
 		uint8_t ucCurRxRCPI1[BSSID_NUM];
-		uint8_t ucCurRxNss[BSSID_NUM]; /* 1NSS Data Counter */
-		uint8_t ucCurRxNss2[BSSID_NUM]; /* 2NSS Data Counter */
+		uint8_t ucCurRxNss[BSSID_NUM];
 	};
 #endif /* CFG_SUPPORT_SCAN_CACHE_RESULT */
 
@@ -687,10 +680,6 @@ struct GLUE_INFO {
 	uint32_t u4TxThreadPid;
 	uint32_t u4RxThreadPid;
 	uint32_t u4HifThreadPid;
-#endif
-#if CFG_SUPPORT_NAN
-	struct completion
-		rNanHaltComp;	/* indicate halt complete in NAN initial flow */
 #endif
 
 #if CFG_SUPPORT_NCHO
@@ -1424,8 +1413,7 @@ int set_p2p_mode_handler(struct net_device *netdev,
 #endif
 
 #if CFG_SUPPORT_NAN
-int set_nan_handler(struct net_device *netdev, uint32_t ucEnable,
-	uint8_t fgIsHoldRtnlLock);
+int set_nan_handler(struct net_device *netdev, uint32_t ucEnable);
 #endif
 
 #if CFG_ENABLE_UNIFY_WIPHY

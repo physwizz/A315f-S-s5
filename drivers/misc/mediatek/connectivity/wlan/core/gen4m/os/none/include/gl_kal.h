@@ -610,14 +610,6 @@ enum ENUM_CMD_TX_RESULT {
 })
 #endif
 
-#define kalMemZAlloc(u4Size, eMemType) ({    \
-	void *pvAddr; \
-	pvAddr = kalMemAlloc(u4Size, eMemType); \
-	if (pvAddr) \
-		kalMemSet(pvAddr, 0, u4Size); \
-	pvAddr; \
-})
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Free allocated cache memory
@@ -738,18 +730,6 @@ int8_t kal_atoi(uint8_t ch);
 #else
 #define kalDevSetPowerState(prGlueInfo, ePowerMode)
 #endif
-
-#if __has_attribute(__fallthrough__)
-#define kal_fallthrough __attribute__((__fallthrough__))
-#else
-#define kal_fallthrough do {} while (0)  /* fallthrough */
-#endif
-
-#define kal_min_t(_type, _v1, _v2) \
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__)
-
-#define kal_tasklet_schedule(_rTasklet) \
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__)
 
 /*----------------------------------------------------------------------------*/
 /*!

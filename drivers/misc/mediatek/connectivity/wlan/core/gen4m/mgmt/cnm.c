@@ -317,9 +317,6 @@ struct EVENT_LTE_SAFE_CHN g_rLteSafeChInfo;
 
 #endif
 
-#if CFG_SUPPORT_NAN
-uint8_t g_ucNanWmmQueIdx;
-#endif
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
@@ -724,14 +721,6 @@ void cnmChMngrRequestPrivilege(struct ADAPTER
 
 	/* Activate network if it's not activated yet */
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prMsgChReq->ucBssIndex);
-
-	if (!prBssInfo) {
-		log_dbg(CNM, ERROR,
-		       "ChReq: prBssInfo is invalid!\n");
-		cnmMemFree(prAdapter, prCmdBody);
-		cnmMemFree(prAdapter, prMsgHdr);
-		return;
-	}
 
 	if (!IS_BSS_ACTIVE(prBssInfo)) {
 		SET_NET_ACTIVE(prAdapter, prBssInfo->ucBssIndex);
@@ -1343,7 +1332,6 @@ uint8_t cnmIdcCsaReq(IN struct ADAPTER *prAdapter,
 		ucRoleIdx, ucCh, ucBssIdx);
 
 	prBssInfo = prAdapter->aprBssInfo[ucBssIdx];
-	kalMemZero(&rRfChnlInfo, sizeof(rRfChnlInfo));
 
 	if (prBssInfo->ucPrimaryChannel != ucCh) {
 #if (CFG_SUPPORT_WIFI_6G == 1)
@@ -1716,12 +1704,6 @@ void cnmAisInfraConnectNotify(struct ADAPTER *prAdapter)
 		}
 	}
 #endif
-#if (CFG_SUPPORT_NAN == 1) && (CFG_NAN_SCHEDULER_VERSION == 1)
-	if (nanSchedUpdateNonNanTimelineByAis(prAdapter)
-		== WLAN_STATUS_SUCCESS)
-		nanSchedSyncNonNanChnlToNan(prAdapter);
-#endif
-
 }
 
 /*----------------------------------------------------------------------------*/
@@ -2080,15 +2062,7 @@ uint8_t cnmGetBssMaxBw(struct ADAPTER *prAdapter,
 			}
 
 		}
-#if CFG_SUPPORT_NAN
-	} else if (prBssInfo->eNetworkType == NETWORK_TYPE_NAN) {
-		if (prBssInfo->eBand == BAND_2G4)
-			ucMaxBandwidth = prAdapter->rWifiVar
-					.ucNan2gBandwidth;
-		else if (prBssInfo->eBand == BAND_5G)
-			ucMaxBandwidth = prAdapter->rWifiVar
-					.ucNan5gBandwidth;
-#endif
+
 	}
 
 #if (CFG_SUPPORT_SINGLE_SKU == 1)
@@ -2099,13 +2073,8 @@ uint8_t cnmGetBssMaxBw(struct ADAPTER *prAdapter,
 		ucChannelBw = rlmDomainGetChannelBw(prBssInfo->eBand,
 			prBssInfo->ucPrimaryChannel);
 	}
-
-	if (!prAdapter->rWifiVar.ucForceBw) {
-		if (ucMaxBandwidth > ucChannelBw)
-			ucMaxBandwidth = ucChannelBw;
-	} else {
-		DBGLOG(CNM, WARN, "Force bw\n");
-	}
+	if (ucMaxBandwidth > ucChannelBw)
+		ucMaxBandwidth = ucChannelBw;
 #endif
 	DBGLOG_LIMITED(CNM, TRACE, "pCH=%d, BW=%d\n",
 		prBssInfo->ucPrimaryChannel, ucMaxBandwidth);
@@ -2238,11 +2207,6 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 			prBssInfo->ucWmmQueSet = DEFAULT_HW_WMM_INDEX;
 			prBssInfo->fgIsWmmInited = FALSE;
 #endif
-			log_dbg(CNM, INFO,
-				"nan, bss=%d,type=%d,omac=%d\n",
-				prBssInfo->ucBssIndex,
-				prBssInfo->eNetworkType,
-				prBssInfo->ucOwnMacIndex);
 			break;
 		}
 	}
@@ -2296,9 +2260,6 @@ void cnmFreeBssInfo(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_DFS
 	cnmTimerStopTimer(prAdapter, &prBssInfo->rCsaTimer);
 #endif
-
-	DBGLOG(REQ, INFO,
-		"[NAN] Free Bss %d", prBssInfo->ucBssIndex);
 
 	prBssInfo->fgIsInUse = FALSE;
 }
@@ -3785,8 +3746,6 @@ enum ENUM_CNM_NETWORK_TYPE_T cnmGetBssNetworkType(
 {
 	if (prBssInfo->eNetworkType == NETWORK_TYPE_AIS)
 		return ENUM_CNM_NETWORK_TYPE_AIS;
-	else if (prBssInfo->eNetworkType == NETWORK_TYPE_NAN)
-		return ENUM_CNM_NETWORK_TYPE_NAN;
 	else if (prBssInfo->eNetworkType == NETWORK_TYPE_P2P) {
 		if (prBssInfo->eCurrentOPMode == OP_MODE_INFRASTRUCTURE)
 			return ENUM_CNM_NETWORK_TYPE_P2P_GC;
@@ -3964,11 +3923,6 @@ uint8_t cnmSapChannelSwitchReq(IN struct ADAPTER *prAdapter,
 error:
 
 	return -1;
-}
-
-uint8_t cnmIncreaseTokenId(struct ADAPTER *prAdapter)
-{
-	return ++prAdapter->ucCnmTokenID;
 }
 
 /*----------------------------------------------------------------------------*/

@@ -43,14 +43,15 @@
 #define BT_LOG_ERR              1
 #define RAW_MAX_BYTES           30
 
-#ifndef CFG_DISABLE_BT_LOG
-#define CFG_DISABLE_BT_LOG	1
-#endif
-
 static uint8_t raw_buf[RAW_MAX_BYTES * 5 + 10];
 extern UINT32 gBtDbgLevel;
 
-#if CFG_DISABLE_BT_LOG
+/* Disable logging, Rissu 2024/22/11 */
+#ifdef CONFIG_MTK_CONNECTIVITY_DISABLE_LOG
+#define CFG_DISABLE_LOG	1
+#endif
+
+#if CFG_DISABLE_LOG
 #define BT_LOG_PRT_DBG(fmt, arg...)
 #define BT_LOG_PRT_INFO(fmt, arg...)
 #define BT_LOG_PRT_WARN(fmt, arg...)
@@ -60,34 +61,15 @@ extern UINT32 gBtDbgLevel;
 #define BT_LOG_PRT_INFO_RAW(p, l, fmt, ...)
 #else
 #define BT_LOG_PRT_DBG(fmt, arg...)	\
-	do {	\
-		if (gBtDbgLevel >= BT_LOG_DBG)	\
-			pr_info(PFX "%s: " fmt, __func__, ##arg);	\
-	} while (0)
-
+	do { if (gBtDbgLevel >= BT_LOG_DBG) pr_info(PFX "%s: " fmt, __func__, ##arg); } while (0)
 #define BT_LOG_PRT_INFO(fmt, arg...)	\
-	do {	\
-		if (gBtDbgLevel >= BT_LOG_INFO)	\
-			pr_info(PFX "%s: " fmt, __func__, ##arg);	\
-	} while (0)
-
+	do { if (gBtDbgLevel >= BT_LOG_INFO) pr_info(PFX "%s: " fmt, __func__, ##arg); } while (0)
 #define BT_LOG_PRT_WARN(fmt, arg...)	\
-	do {	\
-		if (gBtDbgLevel >= BT_LOG_WARN)	\
-			pr_info(PFX "%s: " fmt, __func__, ##arg);	\
-	} while (0)
-
+	do { if (gBtDbgLevel >= BT_LOG_WARN) pr_info(PFX "%s: " fmt, __func__, ##arg); } while (0)
 #define BT_LOG_PRT_ERR(fmt, arg...)	\
-	do {	\
-		if (gBtDbgLevel >= BT_LOG_ERR)	\
-			pr_info(PFX "%s: " fmt, __func__, ##arg);	\
-	} while (0)
-	
+	do { if (gBtDbgLevel >= BT_LOG_ERR) pr_info(PFX "%s: " fmt, __func__, ##arg); } while (0)
 #define BT_LOG_PRT_INFO_RATELIMITED(fmt, arg...)	\
-	do {	\
-		if (gBtDbgLevel >= BT_LOG_ERR)	\
-			pr_info_ratelimited(PFX "%s: " fmt, __func__, ##arg);	\
-	} while (0)
+	do { if (gBtDbgLevel >= BT_LOG_ERR) pr_info_ratelimited(PFX "%s: " fmt, __func__, ##arg); } while (0)
 
 #define BT_LOG_PRT_DBG_RAW(p, l, fmt, ...)						\
 			do {	\
@@ -130,7 +112,7 @@ extern UINT32 gBtDbgLevel;
 				}	\
 			}	\
 		} while (0)
-#endif
+#endif /* CFG_DISABLE_LOG */
 
 struct bt_dbg_st {
 	bool trx_enable;

@@ -3383,10 +3383,10 @@ wlanoidSetMulticastList(IN struct ADAPTER *prAdapter,
 			OUT uint32_t *pu4SetInfoLen);
 
 #if CFG_SUPPORT_NAN
-uint32_t wlanoidSetNANMulticastList(struct ADAPTER *prAdapter,
-				    uint8_t ucBssIdx, void *pvSetBuffer,
-				    uint32_t u4SetBufferLen,
-				    uint32_t *pu4SetInfoLen);
+uint32_t wlanoidSetNANMulticastList(IN struct ADAPTER *prAdapter,
+				    uint8_t ucBssIdx, IN void *pvSetBuffer,
+				    IN uint32_t u4SetBufferLen,
+				    OUT uint32_t *pu4SetInfoLen);
 #endif
 
 uint32_t
@@ -3886,9 +3886,9 @@ wlanoidSetP2pMode(IN struct ADAPTER *prAdapter,
 #endif
 
 #if CFG_SUPPORT_NAN
-uint32_t wlanoidSetNANMode(struct ADAPTER *prAdapter, void *pvSetBuffer,
-			   uint32_t u4SetBufferLen,
-			   uint32_t *pu4SetInfoLen);
+uint32_t wlanoidSetNANMode(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
+			   IN uint32_t u4SetBufferLen,
+			   OUT uint32_t *pu4SetInfoLen);
 #endif
 
 uint32_t
@@ -4025,8 +4025,7 @@ uint32_t wlanoidSetSer(IN struct ADAPTER *prAdapter,
 uint32_t wlanoidSerExtCmd(IN struct ADAPTER *prAdapter,
 			  uint8_t ucAction,
 			  uint8_t ucSerSet,
-			  uint8_t ucDbdcIdx,
-			  u_int8_t fgIsOid);
+			  uint8_t ucDbdcIdx);
 
 #if CFG_SUPPORT_NCHO
 #define NCHO_CMD_MAX_LENGTH	128
@@ -4536,12 +4535,5 @@ uint32_t wlanoidGetStaInfo(IN struct ADAPTER *prAdapter,
 			IN void *pvSetBuffer,
 			IN uint32_t u4SetBufferLen,
 			OUT uint32_t *pu4SetInfoLen);
-#endif
-
-#if CFG_SUPPORT_NAN
-uint32_t
-wlanoidGetNanDeviceInfo(IN struct ADAPTER *prAdapter,
-		    IN void *pvQueryBuffer, IN uint32_t u4QueryBufferLen,
-		    OUT uint32_t *pu4QueryInfoLen);
 #endif
 #endif /* _WLAN_OID_H */

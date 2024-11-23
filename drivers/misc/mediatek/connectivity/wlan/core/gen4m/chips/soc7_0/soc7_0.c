@@ -530,9 +530,6 @@ struct mt66xx_chip_info mt66xx_chip_info_soc7_0 = {
 	.u4UmacWtblDUAddr = CONNAC2X_WIFI_UWTBL_BASE,
 	.wmmcupwron = wf_pwr_on_consys_mcu,
 	.wmmcupwroff = wf_pwr_off_consys_mcu,
-#if CFG_SUPPORT_LLS
-	.is_supported_full_lls = TRUE,
-#endif
 #if (CFG_POWER_ON_DOWNLOAD_EMI_ROM_PATCH == 1)
 	.pwrondownload = soc7_0_wlanPowerOnDownload,
 #else
